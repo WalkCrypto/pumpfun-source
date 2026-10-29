@@ -198,7 +198,8 @@ function isTraderEntry(value: unknown): value is TraderEntry {
       value.buySpendSol,
       value.positionsCount,
       value.lastRefreshedAtMs,
-    ].every((number) => typeof number === "number" && Number.isFinite(number))
+    ].every((number) => typeof number === "number" && Number.isFinite(number)) &&
+    Number.isSafeInteger(value.positionsCount)
   );
 }
 
@@ -218,7 +219,7 @@ function isCreatorEntry(value: unknown): value is CreatorEntry {
     typeof value.totalPaidUsdc === "number" &&
     Number.isFinite(value.totalPaidUsdc) &&
     typeof value.payoutCount === "number" &&
-    Number.isFinite(value.payoutCount) &&
+    Number.isSafeInteger(value.payoutCount) &&
     (typeof value.lastPaidAt === "string" || value.lastPaidAt === null)
   );
 }
@@ -238,11 +239,15 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
     ) &&
     [value.maxEntries, value.entriesCount, value.participants].every(
       (number) =>
-        typeof number === "number" && Number.isFinite(number) && number >= 0,
+        typeof number === "number" &&
+        Number.isSafeInteger(number) &&
+        number >= 0,
     ) &&
     [value.minMembers, value.maxMembers].every(
       (number) =>
-        typeof number === "number" && Number.isFinite(number) && number >= 0,
+        typeof number === "number" &&
+        Number.isSafeInteger(number) &&
+        number >= 0,
     ) &&
     Array.isArray(value.prizes) &&
     value.prizes.length <= 100 &&
@@ -286,6 +291,8 @@ function isCompetitionEntry(value: unknown): value is CompetitionEntry {
       value.lastRefreshedAtMs,
     ].every((number) => typeof number === "number" && number >= 0) &&
     typeof value.struck === "boolean" &&
+    Number.isSafeInteger(value.memberCount) &&
+    Number.isSafeInteger(value.membersFresh) &&
     (typeof value.walletAddress === "string" || value.walletAddress === null) &&
     (typeof value.username === "string" || value.username === null) &&
     typeof value.isVerified === "boolean" &&
@@ -338,7 +345,7 @@ function isData(value: unknown): value is LeaderboardData {
       value.entries.length <= 100 &&
       value.entries.every(isCompetitionEntry) &&
       typeof value.totalRanked === "number" &&
-      Number.isFinite(value.totalRanked) &&
+      Number.isSafeInteger(value.totalRanked) &&
       value.totalRanked >= 0 &&
       typeof value.builtAtMs === "number" &&
       Number.isFinite(value.builtAtMs) &&
