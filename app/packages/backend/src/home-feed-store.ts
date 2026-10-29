@@ -432,7 +432,9 @@ function decodeCursor(
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+    parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body),
+    );
   } catch {
     throw new HomeFeedCursorError("cursor body is not canonical JSON data");
   }
