@@ -190,6 +190,20 @@ export class PostStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
+    // Visibility is decided by truthiness everywhere (isServed, hydrate
+    // embeds), so a mistyped flag inverts the row: deleted: 'false' is
+    // truthy and hides a live post, hidden: 'false' hides it from embeds,
+    // and deleted: 0 reads as live. The flags are typed boolean, so reject
+    // anything else at construction, like the users store does for its
+    // boolean search option.
+    for (const post of this.posts) {
+      if (typeof post.deleted !== 'boolean') {
+        throw new TypeError('Post deleted must be a boolean');
+      }
+      if (post.hidden !== undefined && typeof post.hidden !== 'boolean') {
+        throw new TypeError('Post hidden must be a boolean when supplied');
+      }
+    }
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
