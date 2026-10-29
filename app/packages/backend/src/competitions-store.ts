@@ -234,6 +234,25 @@ export class CompetitionStore {
     }
     const slugOwners = new Map(this.competitions.map(comp => [comp.slug.toLowerCase(), comp]));
     for (const comp of this.competitions) {
+      // Kind and phase are served verbatim and drive branching: a bogus
+      // phase drops the competition from every list bucket (it matches no
+      // upcoming/live/past branch) while the detail read still serves it,
+      // and a bogus kind silently takes the group branch for person-only
+      // rules. Reject values outside the schema enum at construction,
+      // like the posts store does for post kinds.
+      if (comp.kind !== 'group' && comp.kind !== 'person') {
+        throw new TypeError('Competition kind must be group or person');
+      }
+      if (
+        comp.phase !== 'upcoming' &&
+        comp.phase !== 'registration' &&
+        comp.phase !== 'live' &&
+        comp.phase !== 'ended'
+      ) {
+        throw new TypeError(
+          'Competition phase must be upcoming, registration, live, or ended',
+        );
+      }
       const owner = slugOwners.get(comp.id.toLowerCase());
       if (owner !== undefined && owner !== comp) {
         throw new TypeError('Ambiguous competition ID/slug keyspace');
