@@ -236,6 +236,19 @@ export class CompetitionStore {
         throw new TypeError('Ambiguous competition ID/slug keyspace');
       }
     }
+    // Ranking sorts entries by pnlUsd and the served JSON serializes every
+    // entry measure, so a nonfinite measure corrupts both: the comparator
+    // returns NaN (a NaN-pnl entry can take rank 1 over a real profit) and
+    // JSON turns NaN/Infinity into null. Reject them at construction, like
+    // the leaderboard store does for its board measures.
+    for (const comp of this.competitions) {
+      for (const entry of comp.entries) {
+        for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
+          'buySpendSol', 'membersFresh', 'lastRefreshedAtMs'] as const) {
+          if (!Number.isFinite(entry[key])) throw new TypeError(`Competition entry ${key} must be finite`);
+        }
+      }
+    }
     this.byId = new Map(this.competitions.map(c => [c.id, c]));
     this.bySlug = new Map(this.competitions.map(c => [c.slug.toLowerCase(), c]));
     this.userStore = userStore ?? defaultStore;
