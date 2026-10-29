@@ -170,6 +170,11 @@ export class UserStore {
 
   /** Search users with query filters, sorting, and pagination. */
   search(opts: UserSearchOptions): User[] {
+    if (
+      opts.includeLabelledWallets !== undefined &&
+      typeof opts.includeLabelledWallets !== 'boolean'
+    )
+      throw new TypeError('includeLabelledWallets must be a boolean');
     let result = [...this.users];
 
     // Filter by includeLabelledWallets (defaults to false).
