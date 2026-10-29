@@ -32,6 +32,9 @@ function pageValue(
 ): number | null | undefined {
   if (raw === undefined) return undefined;
   if (raw.trim() === '') return null;
+  // Number() also accepts non-decimal spellings (0x10, 1e1, 010, +5,
+  // padded values, 5.0), so a decimal integer literal is required first.
+  if (!/^-?(0|[1-9]\d*)$/.test(raw)) return null;
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed)) return null;
   return parsed;
