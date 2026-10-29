@@ -155,6 +155,14 @@ export class UserStore {
         if (identities.has(id)) throw new TypeError('Duplicate or ambiguous user identity');
         identities.add(id);
       }
+      // The rename timestamp is served verbatim on the single-profile,
+      // overview, list, and labelled-search rows, where the schema declares
+      // it number|null — so a non-finite value would reach clients as null
+      // or a string. Null (never renamed) and absent stay valid.
+      const renamed = user.last_username_update_timestamp;
+      if (renamed !== undefined && renamed !== null && !Number.isFinite(renamed)) {
+        throw new TypeError('User last_username_update_timestamp must be finite');
+      }
     }
     this.byAddress = new Map(this.users.filter(u => u.address !== '').map(u => [u.address, u]));
     this.byUserId = new Map(
