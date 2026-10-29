@@ -176,6 +176,11 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.post('/v1/users/batch', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // Body-only operation: any query key is malformed input, matching the
+    // portfolio-summary POST, which rejects queries as INVALID_BODY.
+    if (request.url.includes('?')) {
+      return reply.code(400).send(errorBody(400, 'INVALID_BODY'));
+    }
     const body = request.body as { addresses?: string[]; forceFetch?: boolean } | null;
     if (!body || !Array.isArray(body.addresses)) {
       return reply.code(400).send(errorBody(400, 'ADDRESSES_REQUIRED'));
@@ -241,6 +246,11 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.post('/v1/profiles/verified', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // Body-only operation: any query key is malformed input, matching the
+    // portfolio-summary POST, which rejects queries as INVALID_BODY.
+    if (request.url.includes('?')) {
+      return reply.code(400).send(errorBody(400, 'INVALID_BODY'));
+    }
     const body = request.body as { ids?: unknown } | null;
     if (!body || typeof body !== 'object' || !Array.isArray(body.ids)) {
       return reply.code(400).send(errorBody(400, 'IDS_REQUIRED'));

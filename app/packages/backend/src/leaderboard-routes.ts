@@ -45,6 +45,14 @@ export function registerLeaderboardRoutes(
   // It shares the existing developer API-key gate and synthetic-data attribution.
   app.get('/v1/profiles/verified', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // The contract declares no query parameters for this operation, so any
+    // query key is unsupported input, not a filter to ignore — the same gap
+    // the single-post read closed. The duplicate guard above still runs first.
+    if (request.url.includes('?')) {
+      return reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', {
+        reason: 'VERIFIED_PROFILES_QUERY_UNSUPPORTED',
+      }));
+    }
     try {
       return sendSynthetic(reply, 200, store.getDailyLeaderProfiles());
     } catch (error) {
