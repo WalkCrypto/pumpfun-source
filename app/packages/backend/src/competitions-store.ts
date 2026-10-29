@@ -228,6 +228,10 @@ export class CompetitionStore {
     // The store documents deterministic read-only data: snapshot the seed so
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.competitions = structuredClone(seed ?? (seedData as unknown as RawCompetition[]));
+    if (this.competitions.some(comp => typeof comp.id !== 'string' || comp.id === '' ||
+        typeof comp.slug !== 'string' || comp.slug === '')) {
+      throw new TypeError('Competition identity must be non-empty');
+    }
     if (new Set(this.competitions.map(c => c.id)).size !== this.competitions.length ||
         new Set(this.competitions.map(c => c.slug.toLowerCase())).size !== this.competitions.length) {
       throw new TypeError('Duplicate competition ID or slug');
