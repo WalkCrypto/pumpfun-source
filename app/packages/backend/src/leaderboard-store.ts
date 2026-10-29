@@ -116,6 +116,12 @@ export class LeaderboardStore {
     this.boards = structuredClone(seed ?? (seedData as unknown as RawSeed));
     for (const period of PERIODS) {
       for (const entry of this.boards[period]) {
+        // walletAddress is the row identity (the duplicate check below keys on
+        // it), so a blank or non-string value must not index a served row
+        // under '' — the same blank-identity hole the posts, users and
+        // competitions stores already reject for their own identities.
+        if (typeof entry.walletAddress !== 'string' || entry.walletAddress === '')
+          throw new TypeError('Leaderboard walletAddress must be a non-empty string');
         for (const key of ['pnlSol', 'pnlUsd', 'pnlPercent', 'realizedPnlSol',
           'realizedPnlUsd', 'unrealizedPnlSol', 'unrealizedPnlUsd', 'buySpendSol',
           'lastRefreshedAtMs'] as const) {
