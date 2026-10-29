@@ -75,6 +75,11 @@ export function rejectDuplicateQueryKeys(request: { url: string }, reply: Fastif
 function userPageValue(raw: string | undefined): number | null | undefined {
   if (raw === undefined) return undefined;
   if (raw.trim() === '') return null;
+  // Number() also accepts non-decimal spellings, so a decimal integer
+  // literal is required first: 0x10, 1e1, 010, +5, a padded value and 5.0
+  // all parsed to a safe integer and served with 200, although none is a
+  // decimal integer literal and the repo's strict parsers reject them all.
+  if (!/^-?(0|[1-9]\d*)$/.test(raw)) return null;
   const parsed = Number(raw);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
