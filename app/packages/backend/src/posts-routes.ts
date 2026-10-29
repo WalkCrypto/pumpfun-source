@@ -207,6 +207,13 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
     // still ambiguous input: fail closed like the sub-resources and the
     // /users reads instead of silently serving past it.
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // A single undocumented key is no better: the operation declares no query
+    // parameters at all, so anything after '?' is unsupported input, not a
+    // filter to ignore — the same gap the competitions list closed.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0 && [...new URLSearchParams(request.url.slice(separator + 1)).keys()].length > 0) {
+      return reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', { reason: 'POST_QUERY_UNSUPPORTED' }));
+    }
     const { postId } = request.params as { postId: string };
     const post = store.getLivePost(postId);
     if (!post) {
