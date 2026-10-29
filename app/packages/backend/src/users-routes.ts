@@ -203,6 +203,13 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.get('/v1/users/:id/overview', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // This read declares no query parameters (contract lists only the path
+    // id), so anything after '?' is unsupported input, not a filter to
+    // ignore — the same gap the users-by-id and single-post reads closed.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0 && [...new URLSearchParams(request.url.slice(separator + 1)).keys()].length > 0) {
+      return reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', { reason: 'USER_OVERVIEW_QUERY_UNSUPPORTED' }));
+    }
     const { id } = request.params as { id: string };
     const overview = store.getOverview(id);
     if (!overview) {
