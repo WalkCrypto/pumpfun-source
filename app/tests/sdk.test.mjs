@@ -87,3 +87,35 @@ test('rebuilt bonding-curve quote math matches published across reserves and amo
  eq('market cap',()=>original.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:curve.virtualQuoteReserves,virtualTokenReserves:curve.virtualTokenReserves}),()=>built.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:curve.virtualQuoteReserves,virtualTokenReserves:curve.virtualTokenReserves}));
  eq('market cap zero token reserves',()=>original.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:new BN(1),virtualTokenReserves:new BN(0)}),()=>built.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:new BN(1),virtualTokenReserves:new BN(0)}));
 });
+test('rebuilt token-incentive accrual matches published across day boundaries',()=>{
+ const {PublicKey}=require('@solana/web3.js');
+ const original=require(join(published,'index.js')), built=require(join(root,'packages/sdk/dist/index.js'));
+ const zero=PublicKey.default;
+ const DAY=86400, START=1000000;
+ const globalFor=(overrides={})=>({startTime:new BN(START),endTime:new BN(START+10*DAY),secondsInADay:new BN(DAY),mint:zero,totalTokenSupply:[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000].map(n=>new BN(n)),solVolumes:[100,200,300,400,500,600,700,800,900,1000,1100].map(n=>new BN(n)),...overrides});
+ const userFor=(overrides={})=>({user:zero,needsClaim:false,totalUnclaimedTokens:new BN(500),totalClaimedTokens:new BN(0),currentSolVolume:new BN(50),lastUpdateTimestamp:new BN(START+DAY),hasTotalClaimedTokens:false,cashbackEarned:new BN(0),totalCashbackClaimed:new BN(0),stableCashbackEarned:new BN(0),totalStableCashbackClaimed:new BN(0),...overrides});
+ const eq=(label,runOriginal,runBuilt)=>{
+  const attempt=(run)=>{try{return {value:run().toString()};}catch(error){return {error:`${error.constructor.name}: ${error.message}`};}};
+  assert.deepEqual(attempt(runBuilt),attempt(runOriginal),label);
+ };
+ const at=(days,extra=0)=>START+days*DAY+extra;
+ // Day 2, last updated day 1: unclaimed accrues day 1 (50*2000/200 = 500 on top
+ // of 500); current-day tokens are 0 because the current day is not the updated day.
+ eq('unclaimed accrues past day',()=>original.totalUnclaimedTokens(globalFor(),userFor(),at(2,3600)),()=>built.totalUnclaimedTokens(globalFor(),userFor(),at(2,3600)));
+ eq('current day zero when days differ',()=>original.currentDayTokens(globalFor(),userFor(),at(2,3600)),()=>built.currentDayTokens(globalFor(),userFor(),at(2,3600)));
+ // Same day as the last update: current-day tokens accrue, unclaimed is unchanged.
+ eq('current day accrues same day',()=>original.currentDayTokens(globalFor(),userFor(),at(1,3600)),()=>built.currentDayTokens(globalFor(),userFor(),at(1,3600)));
+ eq('unclaimed unchanged same day',()=>original.totalUnclaimedTokens(globalFor(),userFor(),at(1,3600)),()=>built.totalUnclaimedTokens(globalFor(),userFor(),at(1,3600)));
+ // Zero-volume updated day: no accrual either way.
+ const zeroVolume=globalFor({solVolumes:[100,0,300,400,500,600,700,800,900,1000,1100].map(n=>new BN(n))});
+ eq('unclaimed unchanged zero volume',()=>original.totalUnclaimedTokens(zeroVolume,userFor(),at(2,3600)),()=>built.totalUnclaimedTokens(zeroVolume,userFor(),at(2,3600)));
+ eq('current day zero zero volume',()=>original.currentDayTokens(zeroVolume,userFor(),at(1,3600)),()=>built.currentDayTokens(zeroVolume,userFor(),at(1,3600)));
+ // Degenerate schedules and out-of-window timestamps.
+ eq('unclaimed zero start',()=>original.totalUnclaimedTokens(globalFor({startTime:new BN(0)}),userFor(),at(2)),()=>built.totalUnclaimedTokens(globalFor({startTime:new BN(0)}),userFor(),at(2)));
+ eq('current day zero start',()=>original.currentDayTokens(globalFor({startTime:new BN(0)}),userFor(),at(2)),()=>built.currentDayTokens(globalFor({startTime:new BN(0)}),userFor(),at(2)));
+ eq('unclaimed before start',()=>original.totalUnclaimedTokens(globalFor(),userFor(),START-1),()=>built.totalUnclaimedTokens(globalFor(),userFor(),START-1));
+ eq('current day before start',()=>original.currentDayTokens(globalFor(),userFor(),START-1),()=>built.currentDayTokens(globalFor(),userFor(),START-1));
+ eq('current day after end',()=>original.currentDayTokens(globalFor(),userFor(),at(11)),()=>built.currentDayTokens(globalFor(),userFor(),at(11)));
+ eq('unclaimed end before start',()=>original.totalUnclaimedTokens(globalFor({endTime:new BN(START-DAY)}),userFor(),at(2)),()=>built.totalUnclaimedTokens(globalFor({endTime:new BN(START-DAY)}),userFor(),at(2)));
+ eq('unclaimed stale update',()=>original.totalUnclaimedTokens(globalFor(),userFor({lastUpdateTimestamp:new BN(START-1)}),at(2)),()=>built.totalUnclaimedTokens(globalFor(),userFor({lastUpdateTimestamp:new BN(START-1)}),at(2)));
+});
