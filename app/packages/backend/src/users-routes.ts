@@ -120,6 +120,18 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.get('/v1/users/search-v2', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // The search declares exactly six query parameters (searchTerm, offset,
+    // limit, sort, order, includeLabelledWallets). An unknown key is
+    // malformed input, not a filter to ignore — the same gap the users
+    // list read closed.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0) {
+      const allowed = new Set(['searchTerm', 'offset', 'limit', 'sort', 'order', 'includeLabelledWallets']);
+      const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+      if (unknown !== undefined) {
+        return reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+      }
+    }
     const qs = request.query as Record<string, string | undefined>;
     const pagination = userPagination(qs);
     if (!pagination) return reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
