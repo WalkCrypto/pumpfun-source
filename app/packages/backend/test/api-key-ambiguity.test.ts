@@ -8,6 +8,7 @@ import { hasAmbiguousApiCredentials } from "../src/api-key-gate.js";
 const key = `pf_live_${"A".repeat(49)}`;
 const other = `pf_live_${"B".repeat(49)}`;
 const expected = {
+  statusCode: 501,
   error: "COMPATIBILITY_NOT_IMPLEMENTED",
   reason: "API_CREDENTIAL_AMBIGUITY_UNQUALIFIED",
 };

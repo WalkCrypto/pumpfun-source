@@ -47,6 +47,7 @@ export async function apiKeyGate(
 ) {
   if (hasAmbiguousApiCredentials(request)) {
     return reply.code(501).send({
+      statusCode: 501,
       error: "COMPATIBILITY_NOT_IMPLEMENTED",
       reason: "API_CREDENTIAL_AMBIGUITY_UNQUALIFIED",
     });
