@@ -151,6 +151,13 @@ export class UserStore {
     this.users = structuredClone(seed ?? users);
     const identities = new Set<string>();
     for (const user of this.users) {
+      // followers/following are the list/search sort keys: a nonfinite count
+      // makes the comparator return NaN (treated as equal), so a NaN row can
+      // head a descending sort, and it serializes to null against the
+      // number-typed contract field. Reject before indexing.
+      for (const key of ['followers', 'following'] as const) {
+        if (!Number.isFinite(user[key])) throw new TypeError(`User ${key} must be finite`);
+      }
       for (const id of new Set([user.address, user.userId].filter((id): id is string => typeof id === 'string' && id !== ''))) {
         if (identities.has(id)) throw new TypeError('Duplicate or ambiguous user identity');
         identities.add(id);
