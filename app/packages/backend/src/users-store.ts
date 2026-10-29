@@ -149,6 +149,22 @@ export class UserStore {
 
   constructor(seed?: User[], verifiedIds?: string[] | Set<string>) {
     this.users = structuredClone(seed ?? users);
+    // Kind is optional, but when supplied it is served verbatim (developer
+    // user rows, following rows) and drives branching elsewhere (posts
+    // hydrate maps group to GROUP and everything else to PERSON, search
+    // resolve maps group to squad and everything else to user). A bogus
+    // kind would therefore be served against the person|group schema while
+    // silently taking the person branch. Reject it at construction, like
+    // the competitions store does for its kind and phase.
+    for (const user of this.users) {
+      if (
+        user.kind !== undefined &&
+        user.kind !== 'person' &&
+        user.kind !== 'group'
+      ) {
+        throw new TypeError('User kind must be person or group when supplied');
+      }
+    }
     const identities = new Set<string>();
     for (const user of this.users) {
       for (const id of new Set([user.address, user.userId].filter((id): id is string => typeof id === 'string' && id !== ''))) {
