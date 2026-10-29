@@ -266,12 +266,21 @@ export class CompetitionStore {
             'buySpendUsd'] as const) {
             if (!Number.isFinite(token[key])) throw new TypeError(`Competition highlight token ${key} must be finite`);
           }
+          // Token chain ids are served verbatim in the highlight views, so
+          // they need the same check the token measures already get — the
+          // same gap the leaderboard positions closed.
+          if (!Number.isFinite(token.chainId)) throw new TypeError('Competition highlight token chainId must be finite');
           for (const member of token.members ?? []) {
             for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
               'buySpendUsd'] as const) {
               if (!Number.isFinite(member[key])) throw new TypeError(`Competition highlight member ${key} must be finite`);
             }
           }
+        }
+        // Board topPositions spread entry positions verbatim, so their
+        // chain ids need the same check.
+        for (const position of entry.positions ?? []) {
+          if (!Number.isFinite(position.chainId)) throw new TypeError('Competition position chainId must be finite');
         }
       }
       // Header numerics are served verbatim in the competition view, and
