@@ -87,3 +87,34 @@ test('rebuilt bonding-curve quote math matches published across reserves and amo
  eq('market cap',()=>original.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:curve.virtualQuoteReserves,virtualTokenReserves:curve.virtualTokenReserves}),()=>built.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:curve.virtualQuoteReserves,virtualTokenReserves:curve.virtualTokenReserves}));
  eq('market cap zero token reserves',()=>original.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:new BN(1),virtualTokenReserves:new BN(0)}),()=>built.bondingCurveMarketCap({mintSupply:supply,virtualQuoteReserves:new BN(1),virtualTokenReserves:new BN(0)}));
 });
+test('rebuilt multi-hop route ends match published across chains and legacy mints',()=>{
+ const {PublicKey}=require('@solana/web3.js');
+ const {TOKEN_PROGRAM_ID, NATIVE_MINT}=require('@solana/spl-token');
+ const original=require(join(published,'index.js')), built=require(join(root,'packages/sdk/dist/index.js'));
+ const key=(n)=>new PublicKey(createHash('sha256').update(`pump-sdk-multihop-${n}`).digest());
+ const [A,B,C,D]=[key(1),key(2),key(3),key(4)];
+ const hop=(base,quote,venue='pool')=>({venue,baseMint:base,quoteMint:quote,baseTokenProgram:TOKEN_PROGRAM_ID,quoteTokenProgram:TOKEN_PROGRAM_ID});
+ const ends=(run,hops,side)=>{
+  try{
+   const {input,output,currency}=run(hops,side);
+   return {input:`${input.mint.toBase58()}/${input.tokenProgram.toBase58()}`,output:`${output.mint.toBase58()}/${output.tokenProgram.toBase58()}`,currency:`${currency.mint.toBase58()}/${currency.tokenProgram.toBase58()}`};
+  }catch(error){return {error:`${error.constructor.name}: ${error.message}`};}
+ };
+ const eq=(label,hops,side)=>assert.deepEqual(ends(built.multiHopRouteEnds,hops,side),ends(original.multiHopRouteEnds,hops,side),label);
+ // Buy walks the quote chain up (each next hop is quoted in the previous hop's base);
+ // sell walks it down. Input/output/currency follow the side, per the function's doc.
+ eq('buy one hop',[hop(A,B)],'buy');
+ eq('sell one hop',[hop(A,B)],'sell');
+ eq('buy three hops',[hop(A,B),hop(C,A),hop(D,C)],'buy');
+ eq('sell three hops',[hop(A,B),hop(B,C),hop(C,D)],'sell');
+ eq('buy curve venue',[hop(A,B,'curve'),hop(C,A,'curve')],'buy');
+ // A legacy SOL quote mint (the zero key curves store, or WSOL itself) reads as
+ // WSOL under the SPL token program on both sides of a hop.
+ eq('buy legacy zero-key quote',[hop(A,PublicKey.default)],'buy');
+ eq('sell legacy WSOL quote',[hop(A,NATIVE_MINT)],'sell');
+ eq('buy legacy zero-key base',[hop(PublicKey.default,B),hop(C,PublicKey.default)],'buy');
+ eq('empty route',[],'buy');
+ eq('empty route sell',[],'sell');
+ eq('buy discontinuous chain',[hop(A,B),hop(C,D)],'buy');
+ eq('sell discontinuous chain',[hop(A,B),hop(C,D)],'sell');
+});
