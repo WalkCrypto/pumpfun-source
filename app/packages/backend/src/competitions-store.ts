@@ -245,7 +245,22 @@ export class CompetitionStore {
     // JSON turns NaN/Infinity into null. Reject them at construction, like
     // the leaderboard store does for its board measures.
     for (const comp of this.competitions) {
+      // Joinable, finality, and struck are consumed by truthiness and
+      // served verbatim (view flags, leaderboard rows, ranking), so a
+      // mistyped flag inverts the row: struck: 'false' is truthy and
+      // zeroes an entry's rank and drops it from participants, while
+      // joinable/isFinal strings would be served against the boolean
+      // schema. Reject non-booleans at construction, like the posts
+      // store does for its visibility flags.
+      for (const field of ['joinable', 'isFinal'] as const) {
+        if (typeof comp[field] !== 'boolean') {
+          throw new TypeError(`Competition ${field} must be a boolean`);
+        }
+      }
       for (const entry of comp.entries) {
+        if (typeof entry.struck !== 'boolean') {
+          throw new TypeError('Competition entry struck must be a boolean');
+        }
         for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
           'buySpendSol', 'membersFresh', 'lastRefreshedAtMs'] as const) {
           if (!Number.isFinite(entry[key])) throw new TypeError(`Competition entry ${key} must be finite`);
