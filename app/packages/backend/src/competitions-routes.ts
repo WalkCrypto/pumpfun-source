@@ -27,6 +27,24 @@ function rejectInvalidNumbers(query: Record<string, string | undefined>, keys: s
   return false;
 }
 
+/**
+ * Each parameterized route declares its query parameters in the contract, so
+ * an unknown key is malformed input, not a filter to ignore — the same gap
+ * the posts sub-resources closed. Returns true when it sent the 400.
+ */
+function rejectUnknownQueryKeys(
+  request: { url: string },
+  reply: FastifyReply,
+  allowed: Set<string>,
+): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+  if (unknown === undefined) return false;
+  reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+  return true;
+}
+
 export function registerCompetitionRoutes(
   app: FastifyInstance,
   store: CompetitionStore = defaultCompetitionStore,
@@ -50,6 +68,7 @@ export function registerCompetitionRoutes(
    */
   app.get('/v1/competitions/:id/entries/:entryId/highlights', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit']))) return reply;
     const { id, entryId } = request.params as { id: string; entryId: string };
     const qs = request.query as Record<string, string | undefined>;
     if (rejectInvalidNumbers(qs, ['limit'], reply)) return reply;
@@ -95,6 +114,7 @@ export function registerCompetitionRoutes(
    */
   app.get('/v1/competitions/:id/highlights', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'perMemberLimit']))) return reply;
     const { id } = request.params as { id: string };
     const qs = request.query as Record<string, string | undefined>;
     if (rejectInvalidNumbers(qs, ['limit', 'perMemberLimit'], reply)) return reply;
@@ -131,6 +151,7 @@ export function registerCompetitionRoutes(
    */
   app.get('/v1/competitions/:idOrSlug', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'positionsLimit']))) return reply;
     const { idOrSlug } = request.params as { idOrSlug: string };
     const qs = request.query as Record<string, string | undefined>;
     if (rejectInvalidNumbers(qs, ['limit', 'positionsLimit'], reply)) return reply;
