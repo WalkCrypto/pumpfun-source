@@ -134,7 +134,7 @@ export class UserStore {
       this.users.filter(u => u.userId !== undefined && u.userId !== '').map(u => [u.userId!, u])
     );
     this.byUsername = new Map(
-      this.users.filter(u => u.username !== null).map(u => [u.username!.toLowerCase(), u])
+      this.users.filter(u => u.username !== null && u.username !== '').map(u => [u.username!.toLowerCase(), u])
     );
     if (verifiedIds) {
       this.verifiedUsers = new Set(verifiedIds);
