@@ -190,6 +190,16 @@ export class PostStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
+    // The counts are served verbatim in hydrate (live posts and deleted
+    // tombstones alike) against number-typed fields, so a nonfinite count
+    // serializes to JSON null exactly like the users sort-key counts and
+    // the competitions header measures that already reject nonfinite
+    // values at construction. Reject them here, like those stores do.
+    for (const post of this.posts) {
+      for (const key of ['likeCount', 'replyCount', 'repostCount', 'quoteCount'] as const) {
+        if (!Number.isFinite(post[key])) throw new TypeError(`Post ${key} must be finite`);
+      }
+    }
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
