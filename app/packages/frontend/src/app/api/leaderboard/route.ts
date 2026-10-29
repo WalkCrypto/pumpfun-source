@@ -60,6 +60,14 @@ export async function GET(request: Request) {
       return failure(400, "INVALID_QUERY", "Leaderboard parameters must occur once.", false);
     }
   }
+  // The route declares exactly six parameters; an unknown key is ignored by
+  // every reader below, so reject it instead of serving past it like the
+  // native backend reads do for their declared sets.
+  for (const key of requestUrl.searchParams.keys()) {
+    if (!["category", "page", "period", "sort", "status", "id"].includes(key)) {
+      return failure(400, "INVALID_QUERY", "Unknown leaderboard parameter.", false);
+    }
+  }
   const category = oneOf(
     requestUrl.searchParams.get("category"),
     leaderboardCategories,

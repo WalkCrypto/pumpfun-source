@@ -6,6 +6,17 @@ import {
 
 export function GET(request: Request) {
   const incoming = new globalThis.URL(request.url);
+  for (const key of incoming.searchParams.keys()) {
+    if (!["filter", "limit", "offset"].includes(key)) {
+      return NextResponse.json(
+        {
+          code: "INVALID_MAYHEM_QUERY",
+          message: "Unknown Mayhem query parameter.",
+        },
+        { status: 400 },
+      );
+    }
+  }
   const filter = normalizeMayhemFilter(
     incoming.searchParams.get("filter") ?? undefined,
   );
