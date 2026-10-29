@@ -74,7 +74,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const pageValue = Number(requestUrl.searchParams.get("page") ?? "1");
+  const rawPage = requestUrl.searchParams.get("page") ?? "1";
+  // Pages are plain decimal literals: Number() would also accept hex (0x10),
+  // exponents (1e1), leading zeros, surrounding whitespace and a leading +,
+  // so a non-decimal literal must fail here instead of reaching the upstream
+  // query as a different page.
+  const pageValue = /^(?:0|[1-9][0-9]*)$/.test(rawPage)
+    ? Number(rawPage)
+    : NaN;
   const page =
     Number.isInteger(pageValue) && pageValue >= 1 && pageValue <= MAX_PAGE
       ? pageValue

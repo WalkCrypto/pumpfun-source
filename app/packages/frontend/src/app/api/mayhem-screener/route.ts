@@ -11,10 +11,22 @@ export function GET(request: Request) {
   );
 
   try {
+    // Limit and offset are plain decimal literals: Number() would also accept
+    // hex (0x10), exponents (1e1), leading zeros and surrounding whitespace,
+    // so a non-decimal literal must fail here instead of being served as a
+    // different page.
+    const limitText = incoming.searchParams.get("limit");
+    const offsetText = incoming.searchParams.get("offset");
+    if (
+      (limitText !== null && !/^(?:0|[1-9][0-9]*)$/.test(limitText)) ||
+      (offsetText !== null && !/^(?:0|[1-9][0-9]*)$/.test(offsetText))
+    ) {
+      throw new Error("Mayhem limit and offset must be plain decimal integers");
+    }
     buildMayhemQuery({
       filter,
-      limit: Number(incoming.searchParams.get("limit") ?? 60),
-      offset: Number(incoming.searchParams.get("offset") ?? 0),
+      limit: Number(limitText ?? 60),
+      offset: Number(offsetText ?? 0),
     });
   } catch (error) {
     return NextResponse.json(
