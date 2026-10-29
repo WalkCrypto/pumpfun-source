@@ -19,7 +19,13 @@ const POST_ID = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-
  * limit=1.5 served one row and limit=abc served the default page, both
  * with 200. A supplied value must parse to a safe integer; an empty or
  * whitespace-only value is not an integer literal either (Number('') is 0,
- * so it would otherwise read as limit=0 / offset=0). Out-of-range
+ * so it would otherwise read as limit=0 / offset=0). Number() also accepts
+ * non-decimal spellings, so a decimal integer literal is required first:
+ * limit=0x10 served 16 rows, limit=1e1 served 10, limit=010 served 10,
+ * and limit=+5, a padded limit= 5  and limit=5.0 each served 5, all with
+ * 200, although none is a decimal integer literal and the repo's strict
+ * parsers (payouts, positions, home-feed, callouts, user-trades) reject
+ * them all. Out-of-range
  * safe integers keep the existing clamp behavior (limit capped at 200,
  * offset at 10000, negative offset at 0, as the existing negative-offset
  * test documents). Returns null for an invalid supplied value.
@@ -34,6 +40,7 @@ function pageValue(
   const raw = qs[field];
   if (raw === undefined) return fallback;
   if (raw.trim() === '') return null;
+  if (!/^-?(0|[1-9]\d*)$/.test(raw)) return null;
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed)) return null;
   return Math.min(maximum, Math.max(minimum, parsed));
