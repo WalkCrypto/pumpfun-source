@@ -251,6 +251,19 @@ export class CompetitionStore {
           if (!Number.isFinite(entry[key])) throw new TypeError(`Competition entry ${key} must be finite`);
         }
       }
+      // Header numerics are served verbatim in the competition view, and
+      // rankTo drives the winners cutoff (Math.max plus a rank filter), so
+      // a nonfinite value corrupts both: a NaN count serializes to null and
+      // a NaN rankTo empties the winners of an ended competition. Reject
+      // them at construction, like the entry measures above.
+      for (const key of ['minMembers', 'maxMembers', 'maxEntries'] as const) {
+        if (!Number.isFinite(comp[key])) throw new TypeError(`Competition ${key} must be finite`);
+      }
+      for (const tier of comp.prizes) {
+        for (const key of ['rankFrom', 'rankTo'] as const) {
+          if (!Number.isFinite(tier[key])) throw new TypeError(`Competition prize ${key} must be finite`);
+        }
+      }
     }
     this.byId = new Map(this.competitions.map(c => [c.id, c]));
     this.bySlug = new Map(this.competitions.map(c => [c.slug.toLowerCase(), c]));
