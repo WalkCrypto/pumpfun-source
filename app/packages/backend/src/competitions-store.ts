@@ -218,6 +218,16 @@ interface RankedEntry extends RawEntry {
   rank: number;
 }
 
+// Direct store reads bypass the routes' query admission (which rejects
+// non-integer limits and clamps the rest), so apply the same bounds here:
+// an unsafe or fractional value must fail loudly instead of silently
+// truncating through slice, and NaN must not empty a page or a position reel.
+function pageValue(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value)) throw new RangeError('Invalid competition pagination');
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
 export class CompetitionStore {
   private competitions: RawCompetition[];
   private byId: Map<string, RawCompetition>;
@@ -401,6 +411,7 @@ export class CompetitionStore {
    * `positionsLimit` slices top and winner rows like leaderboard rows (default 3).
    */
   public toCompetitionView(comp: RawCompetition, positionsLimit = 3): CompetitionView {
+    positionsLimit = pageValue(positionsLimit, 3, 0, 5);
     const ranked = this.rankEntries(comp);
     const nonStruckRanked = ranked.filter(e => !e.struck && e.rank >= 1);
 
@@ -519,12 +530,12 @@ export class CompetitionStore {
     const comp = this.byId.get(idOrSlug) ?? this.bySlug.get(idOrSlug.toLowerCase());
     if (!comp) return null;
 
-    const positionsLimit = opts.positionsLimit !== undefined ? opts.positionsLimit : 3;
+    const positionsLimit = pageValue(opts.positionsLimit, 3, 0, 5);
     const competition = this.toCompetitionView(comp, positionsLimit);
     const ranked = this.rankEntries(comp);
     const nonStruckRanked = ranked.filter(e => !e.struck && e.rank >= 1);
 
-    const limit = opts.limit !== undefined ? opts.limit : 100;
+    const limit = pageValue(opts.limit, 100, 0, 100);
 
     const entries = nonStruckRanked
       .slice(0, limit)
@@ -634,7 +645,7 @@ export class CompetitionStore {
       return { entryId, tokens: [] };
     }
 
-    const limit = opts.limit !== undefined ? opts.limit : 10;
+    const limit = pageValue(opts.limit, 10, 1, 10);
     const rawTokens = [...(target.highlightTokens ?? [])];
 
     rawTokens.sort((a, b) => b.pnlUsd - a.pnlUsd);
@@ -686,8 +697,8 @@ export class CompetitionStore {
     const comp = this.byId.get(competitionId) ?? this.bySlug.get(competitionId.toLowerCase());
     if (!comp) return null;
 
-    const limit = opts.limit !== undefined ? opts.limit : 20;
-    const perMemberLimit = opts.perMemberLimit !== undefined ? opts.perMemberLimit : 1;
+    const limit = pageValue(opts.limit, 20, 1, 20);
+    const perMemberLimit = pageValue(opts.perMemberLimit, 1, 1, 10);
 
     const ranked = this.rankEntries(comp);
     const nonStruckRanked = ranked.filter(e => !e.struck && e.rank >= 1);
