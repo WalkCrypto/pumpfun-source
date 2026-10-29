@@ -90,6 +90,11 @@ export class FollowingStore {
     this.users = userStore;
     this.edges = structuredClone(seed);
     if (this.edges.some(edge => !Number.isSafeInteger(edge.timestamp) || edge.timestamp < 0)) throw new TypeError('Invalid follow timestamp');
+    // Endpoints are identities like everywhere else in the backend: a blank
+    // or non-string endpoint otherwise inflates counts (countFollowers counts
+    // raw edges) while pages drop the unresolvable row, and relationship()
+    // even returns a phantom relationship for an empty viewer.
+    if (this.edges.some(edge => typeof edge.follower_id !== 'string' || edge.follower_id === '' || typeof edge.following_id !== 'string' || edge.following_id === '')) throw new TypeError('Follow edge endpoints must be non-empty strings');
     const pairs = this.edges.map((edge) => JSON.stringify([edge.follower_id, edge.following_id]));
     if (new Set(pairs).size !== pairs.length) throw new TypeError('Duplicate follow relation');
   }
