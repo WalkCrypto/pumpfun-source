@@ -107,7 +107,11 @@ function comparePrimitive(a: string | number | null, b: string | number | null, 
   if (b === null) return -1;
   let cmp: number;
   if (typeof a === 'string' && typeof b === 'string') {
-    cmp = a.localeCompare(b);
+    // Keep locale ordering, but break collation equivalence with the exact
+    // string: localeCompare alone returns 0 for distinct values such as
+    // precomposed "é" and "e" + combining acute, leaving the order dependent
+    // on seed insertion order instead of being a total order.
+    cmp = a.localeCompare(b) || (a === b ? 0 : a < b ? -1 : 1);
   } else {
     cmp = (a as number) - (b as number);
   }
