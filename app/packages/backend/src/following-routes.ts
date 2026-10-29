@@ -9,7 +9,7 @@
  * /users slice: the documented descriptions say out-of-range values are
  * "rejected with 400, not clamped", so this file rejects instead of clamping.
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { defaultFollowingStore, type FollowingStore } from './following-store.js';
 import { errorBody, sendSynthetic, rejectDuplicateQueryKeys, toDeveloperUser } from './users-routes.js';
 
@@ -57,6 +57,24 @@ function parseListPage(
   return { limit, offset, sort };
 }
 
+/**
+ * The following reads declare their query parameters in the contract, so an
+ * unknown key is malformed input, not a filter to ignore — the same gap the
+ * users and leaderboard reads closed. Returns true when it sent the 400.
+ */
+function rejectUnknownQueryKeys(
+  request: { url: string },
+  reply: FastifyReply,
+  allowed: Set<string>,
+): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+  if (unknown === undefined) return false;
+  reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+  return true;
+}
+
 export function registerFollowingRoutes(
   app: FastifyInstance,
   store: FollowingStore = defaultFollowingStore,
@@ -68,6 +86,7 @@ export function registerFollowingRoutes(
    */
   app.get('/v1/following/single/:id', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['userId']))) return reply;
     const { id } = request.params as { id: string };
     const qs = request.query as Record<string, string | undefined>;
     const viewer = qs.userId;
@@ -105,6 +124,7 @@ export function registerFollowingRoutes(
    */
   app.get('/v1/following/v3/followers/search/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['searchTerm', 'limit', 'offset']))) return reply;
     const { userId } = request.params as { userId: string };
     const qs = request.query as Record<string, string | undefined>;
     const term = qs.searchTerm;
@@ -134,6 +154,7 @@ export function registerFollowingRoutes(
   /** GET /v1/following/v3/following/search/:userId?searchTerm= — as above. */
   app.get('/v1/following/v3/following/search/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['searchTerm', 'limit', 'offset']))) return reply;
     const { userId } = request.params as { userId: string };
     const qs = request.query as Record<string, string | undefined>;
     const term = qs.searchTerm;
@@ -166,6 +187,7 @@ export function registerFollowingRoutes(
    */
   app.get('/v1/following/v3/followers/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'offset', 'sort']))) return reply;
     const { userId } = request.params as { userId: string };
     const qs = request.query as Record<string, string | undefined>;
     const page = parseListPage(qs, LIST_PAGE);
@@ -178,6 +200,7 @@ export function registerFollowingRoutes(
   /** GET /v1/following/v3/following/{userId}?limit=&offset=&sort= — as above. */
   app.get('/v1/following/v3/following/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'offset', 'sort']))) return reply;
     const { userId } = request.params as { userId: string };
     const qs = request.query as Record<string, string | undefined>;
     const page = parseListPage(qs, LIST_PAGE);
