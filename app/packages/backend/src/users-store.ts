@@ -155,6 +155,13 @@ export class UserStore {
         if (identities.has(id)) throw new TypeError('Duplicate or ambiguous user identity');
         identities.add(id);
       }
+      // Counts are served verbatim (as followerCount/followingCount) and
+      // declared as numbers in the response schema, so a non-finite count
+      // would reach clients as null or a string. The posts store fails
+      // closed on its counts the same way.
+      for (const key of ['followers', 'following'] as const) {
+        if (!Number.isFinite(user[key])) throw new TypeError(`User ${key} must be finite`);
+      }
     }
     this.byAddress = new Map(this.users.filter(u => u.address !== '').map(u => [u.address, u]));
     this.byUserId = new Map(
