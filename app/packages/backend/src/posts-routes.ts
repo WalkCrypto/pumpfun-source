@@ -4,7 +4,7 @@
  * Registered as native Fastify handlers taking priority over the generic fixture-replay loop.
  * Serves deterministic data from the in-memory PostStore linked to UserStore.
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { PostStore, defaultPostStore } from './posts-store.js';
 import { sendSynthetic, errorBody, rejectDuplicateQueryKeys } from './users-routes.js';
 
@@ -39,6 +39,24 @@ function pageValue(
   return Math.min(maximum, Math.max(minimum, parsed));
 }
 
+/**
+ * The batch route declares exactly one query parameter (ids), so any other
+ * key is malformed input, not a filter to ignore — the same gap the
+ * sub-resources closed. Returns true when it sent the 400.
+ */
+function rejectUnknownQueryKeys(
+  request: { url: string },
+  reply: FastifyReply,
+  allowed: Set<string>,
+): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+  if (unknown === undefined) return false;
+  reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+  return true;
+}
+
 export function registerPostRoutes(app: FastifyInstance, store: PostStore = defaultPostStore): void {
   /**
    * GET /v1/posts
@@ -47,6 +65,10 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    * Returns: 200, { posts: Post[] }
    */
   app.get('/v1/posts', async (request, reply) => {
+    // The batch route deliberately has no duplicate-key guard (repeated ids
+    // collapse by contract), but unknown keys are still rejected before ids
+    // are read, so a mistyped parameter cannot silently become the default.
+    if (rejectUnknownQueryKeys(request, reply, new Set(['ids']))) return reply;
     const qs = request.query as Record<string, unknown>;
     const rawIds = qs.ids;
     if (!rawIds) {
