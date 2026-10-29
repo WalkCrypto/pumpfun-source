@@ -140,6 +140,20 @@ function isWalletAddress(value: string): boolean {
   return (bytes.length === 1 && bytes[0] === 0 ? 0 : bytes.length) + leading === 32;
 }
 
+/**
+ * Direct store reads bypass the route layer's pagination admission, so they
+ * enforce the same contract here: only safe integers are accepted, and the
+ * route's documented clamp applies (negative offset reads as 0, negative
+ * limit reads as 0 and serves no rows). Without this, Array.prototype.slice
+ * turned a negative offset into a slicing surprise and silently truncated
+ * fractional or NaN values into a wrong or empty page.
+ */
+function pageValue(value: number | undefined, fallback: number, minimum: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value)) throw new RangeError('Invalid user pagination');
+  return Math.max(minimum, value);
+}
+
 export class UserStore {
   private users: User[];
   private byAddress: Map<string, User>;
@@ -190,8 +204,8 @@ export class UserStore {
       ));
     }
 
-    const offset = opts.offset ?? 0;
-    const limit = opts.limit ?? result.length;
+    const offset = pageValue(opts.offset, 0, 0);
+    const limit = pageValue(opts.limit, result.length, 0);
     return structuredClone(result.slice(offset, offset + limit));
   }
 
@@ -233,8 +247,8 @@ export class UserStore {
       ));
     }
 
-    const offset = opts.offset ?? 0;
-    const limit = opts.limit ?? result.length;
+    const offset = pageValue(opts.offset, 0, 0);
+    const limit = pageValue(opts.limit, result.length, 0);
     return structuredClone(result.slice(offset, offset + limit));
   }
 
