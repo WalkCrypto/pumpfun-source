@@ -190,6 +190,14 @@ export class PostStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
+    // Counts are served verbatim by hydrate and declared as numbers in the
+    // response schema, so a non-finite count would reach clients as null or
+    // a string. The other stores finite-check their measures the same way.
+    for (const post of this.posts) {
+      for (const key of ['likeCount', 'replyCount', 'repostCount', 'quoteCount'] as const) {
+        if (!Number.isFinite(post[key])) throw new TypeError(`Post ${key} must be finite`);
+      }
+    }
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
