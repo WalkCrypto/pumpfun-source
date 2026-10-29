@@ -250,6 +250,29 @@ export class CompetitionStore {
           'buySpendSol', 'membersFresh', 'lastRefreshedAtMs'] as const) {
           if (!Number.isFinite(entry[key])) throw new TypeError(`Competition entry ${key} must be finite`);
         }
+        // The nested rows are served and sorted by the same measures: entry
+        // members are sorted by pnlUsd in getEntryDetail, highlight tokens
+        // are sorted by pnlUsd and their members by pnlUsd in
+        // getEntryHighlights, so a nonfinite nested measure corrupts those
+        // orderings and serializes to null exactly like a top-level one.
+        for (const member of entry.members ?? []) {
+          for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
+            'buySpendSol', 'lastRefreshedAtMs'] as const) {
+            if (!Number.isFinite(member[key])) throw new TypeError(`Competition entry member ${key} must be finite`);
+          }
+        }
+        for (const token of entry.highlightTokens ?? []) {
+          for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
+            'buySpendUsd'] as const) {
+            if (!Number.isFinite(token[key])) throw new TypeError(`Competition highlight token ${key} must be finite`);
+          }
+          for (const member of token.members ?? []) {
+            for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
+              'buySpendUsd'] as const) {
+              if (!Number.isFinite(member[key])) throw new TypeError(`Competition highlight member ${key} must be finite`);
+            }
+          }
+        }
       }
     }
     this.byId = new Map(this.competitions.map(c => [c.id, c]));
