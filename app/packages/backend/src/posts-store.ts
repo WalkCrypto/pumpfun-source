@@ -190,6 +190,14 @@ export class PostStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
+    for (const post of this.posts) {
+      // Newest-first ordering and keyset pagination read createdAt through
+      // Date.parse, and decodeCursor already rejects unparseable cursor times.
+      // A seed row the comparator cannot parse is served verbatim yet silently
+      // drops out of every cursor page, so reject it here. Null and '' stay
+      // the documented null-time sentinel the comparator maps to 0.
+      if (post.createdAt && (typeof post.createdAt !== 'string' || !Number.isFinite(new Date(post.createdAt).getTime()))) throw new TypeError('Invalid post createdAt');
+    }
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
