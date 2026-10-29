@@ -73,6 +73,19 @@ export function registerLeaderboardRoutes(
    */
   app.get('/v1/pnl-leaderboard', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // The board declares exactly four query parameters (period, sort,
+    // positionsLimit, limit). An unknown key is malformed input, not a
+    // filter to ignore: the strict parsers (home-feed, positions, payouts,
+    // user-trades, callouts) all reject unknown keys rather than serving
+    // past them, and a mistyped parameter name must not read as the default.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0) {
+      const allowed = new Set(['period', 'sort', 'positionsLimit', 'limit']);
+      const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+      if (unknown !== undefined) {
+        return reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+      }
+    }
     const qs = request.query as Record<string, string | undefined>;
 
     if (qs.period === undefined) {
