@@ -81,6 +81,16 @@ function nonNegativeNumber(value: unknown, label: string): number {
   return parsed;
 }
 
+function nonNegativeInteger(value: unknown, label: string): number {
+  const parsed = nonNegativeNumber(value, label);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new UpstreamValidationError(
+      `${label} must be a non-negative safe integer.`,
+    );
+  }
+  return parsed;
+}
+
 function boolean(value: unknown, label: string): boolean {
   if (typeof value !== "boolean") {
     throw new UpstreamValidationError(`${label} must be a boolean.`);
@@ -129,7 +139,7 @@ function parseTraderEntry(value: unknown, index: number): TraderEntry {
   number(row.unrealizedPnlSol, `entries[${index}].unrealizedPnlSol`);
   nullableText(row.profileImage, `entries[${index}].profileImage`, 2048);
   return {
-    rank: nonNegativeNumber(row.rank, `entries[${index}].rank`),
+    rank: nonNegativeInteger(row.rank, `entries[${index}].rank`),
     walletAddress: text(
       row.walletAddress,
       `entries[${index}].walletAddress`,
@@ -157,7 +167,7 @@ function parseTraderEntry(value: unknown, index: number): TraderEntry {
       row.buySpendSol,
       `entries[${index}].buySpendSol`,
     ),
-    positionsCount: nonNegativeNumber(
+    positionsCount: nonNegativeInteger(
       row.positionsCount,
       `entries[${index}].positionsCount`,
     ),
@@ -199,7 +209,7 @@ function parseCreatorEntry(value: unknown, index: number): CreatorEntry {
     );
   }
   return {
-    rank: nonNegativeNumber(row.rank, `entries[${index}].rank`),
+    rank: nonNegativeInteger(row.rank, `entries[${index}].rank`),
     userId: nullableText(row.userId, `entries[${index}].userId`, 200),
     username: nullableText(row.username, `entries[${index}].username`, 200),
     walletAddress: nullableText(
@@ -217,7 +227,7 @@ function parseCreatorEntry(value: unknown, index: number): CreatorEntry {
       row.totalPaidUsdc,
       `entries[${index}].totalPaidUsdc`,
     ),
-    payoutCount: nonNegativeNumber(
+    payoutCount: nonNegativeInteger(
       row.payoutCount,
       `entries[${index}].payoutCount`,
     ),
@@ -232,7 +242,7 @@ function parseCreators(value: unknown, page: number): CreatorsData {
     entries: array(payload.entries, "entries", CREATOR_PAGE_SIZE).map(
       parseCreatorEntry,
     ),
-    totalEarners: nonNegativeNumber(payload.totalEarners, "totalEarners"),
+    totalEarners: nonNegativeInteger(payload.totalEarners, "totalEarners"),
     generatedAt: date(payload.generatedAt, "generatedAt"),
     page,
     pageSize: CREATOR_PAGE_SIZE,
@@ -246,11 +256,11 @@ function parseCompetitionPrizes(
   return array(value, label, 100).map((prizeValue, index) => {
     const prize = record(prizeValue, `${label}[${index}]`);
     return {
-      rankFrom: nonNegativeNumber(
+      rankFrom: nonNegativeInteger(
         prize.rankFrom,
         `${label}[${index}].rankFrom`,
       ),
-      rankTo: nonNegativeNumber(prize.rankTo, `${label}[${index}].rankTo`),
+      rankTo: nonNegativeInteger(prize.rankTo, `${label}[${index}].rankTo`),
       amount: text(prize.amount, `${label}[${index}].amount`, 200),
     };
   });
@@ -273,12 +283,12 @@ function parseCompetitionEntry(
     entryId: text(row.entryId, `${label}.entryId`, 200),
     participantId: text(row.participantId, `${label}.participantId`, 200),
     kind,
-    rank: nonNegativeNumber(row.rank, `${label}.rank`),
+    rank: nonNegativeInteger(row.rank, `${label}.rank`),
     pnlUsd: number(row.pnlUsd, `${label}.pnlUsd`),
     realizedPnlUsd: number(row.realizedPnlUsd, `${label}.realizedPnlUsd`),
     unrealizedPnlUsd: number(row.unrealizedPnlUsd, `${label}.unrealizedPnlUsd`),
-    memberCount: nonNegativeNumber(row.memberCount, `${label}.memberCount`),
-    membersFresh: nonNegativeNumber(row.membersFresh, `${label}.membersFresh`),
+    memberCount: nonNegativeInteger(row.memberCount, `${label}.memberCount`),
+    membersFresh: nonNegativeInteger(row.membersFresh, `${label}.membersFresh`),
     struck: boolean(row.struck, `${label}.struck`),
     lastRefreshedAtMs: nonNegativeNumber(
       row.lastRefreshedAtMs,
@@ -326,11 +336,11 @@ function parseCompetitionSummary(
     description: text(competition.description, `${label}.description`, 5000),
     prizeCopy: text(competition.prizeCopy, `${label}.prizeCopy`, 1000),
     prizes,
-    minMembers: nonNegativeNumber(
+    minMembers: nonNegativeInteger(
       competition.minMembers,
       `${label}.minMembers`,
     ),
-    maxMembers: nonNegativeNumber(
+    maxMembers: nonNegativeInteger(
       competition.maxMembers,
       `${label}.maxMembers`,
     ),
@@ -344,15 +354,15 @@ function parseCompetitionSummary(
     ),
     startsAt: date(competition.startsAt, `${label}.startsAt`),
     endsAt: date(competition.endsAt, `${label}.endsAt`),
-    maxEntries: nonNegativeNumber(
+    maxEntries: nonNegativeInteger(
       competition.maxEntries,
       `${label}.maxEntries`,
     ),
-    entriesCount: nonNegativeNumber(
+    entriesCount: nonNegativeInteger(
       competition.entriesCount,
       `${label}.entriesCount`,
     ),
-    participants: nonNegativeNumber(
+    participants: nonNegativeInteger(
       competition.participants,
       `${label}.participants`,
     ),
@@ -394,7 +404,7 @@ function parseCompetitionDetail(value: unknown): CompetitionDetailData {
       (entry, index) =>
         parseCompetitionEntry(entry, `leaderboard.entries[${index}]`),
     ),
-    totalRanked: nonNegativeNumber(
+    totalRanked: nonNegativeInteger(
       board.totalRanked,
       "leaderboard.totalRanked",
     ),
