@@ -9,14 +9,13 @@
  * /users slice: the documented descriptions say out-of-range values are
  * "rejected with 400, not clamped", so this file rejects instead of clamping.
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { defaultFollowingStore, type FollowingStore } from './following-store.js';
 import { errorBody, sendSynthetic, rejectDuplicateQueryKeys, toDeveloperUser } from './users-routes.js';
 
 const LIST_PAGE = { min: 1, max: 1000, default: 20 } as const;
 const SEARCH_PAGE = { min: 1, max: 100, default: 20 } as const;
 const SEARCH_TERM_MAX = 50;
-
 interface PageParse {
   limit: number;
   offset: number;
@@ -57,6 +56,20 @@ function parseListPage(
   return { limit, offset, sort };
 }
 
+/**
+ * The count operations declare no query parameters (contract lists only the
+ * path userId), so anything after '?' is unsupported input, not a filter to
+ * ignore — the same gap the users and posts no-parameter reads closed.
+ * Returns true when it sent the 501.
+ */
+function rejectUnsupportedCountQuery(request: { url: string }, reply: FastifyReply): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  if ([...new URLSearchParams(request.url.slice(separator + 1)).keys()].length === 0) return false;
+  reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', { reason: 'FOLLOW_COUNT_QUERY_UNSUPPORTED' }));
+  return true;
+}
+
 export function registerFollowingRoutes(
   app: FastifyInstance,
   store: FollowingStore = defaultFollowingStore,
@@ -83,6 +96,7 @@ export function registerFollowingRoutes(
    */
   app.get('/v1/following/v3/followers/count/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnsupportedCountQuery(request, reply)) return reply;
     const { userId } = request.params as { userId: string };
     return sendSynthetic(reply, 200, { count: store.countFollowers(userId) });
   });
@@ -93,6 +107,7 @@ export function registerFollowingRoutes(
    */
   app.get('/v1/following/v3/following/count/:userId', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnsupportedCountQuery(request, reply)) return reply;
     const { userId } = request.params as { userId: string };
     return sendSynthetic(reply, 200, { count: store.countFollowing(userId) });
   });
