@@ -34,6 +34,9 @@ function parseListPage(
     // as a page boundary: it is rejected like any other non-integer, matching
     // the posts and users pagination fix.
     if (qs.limit.trim() === '') return 'INVALID_LIMIT';
+    // Number() also accepts non-decimal spellings (0x10, 1e1, 010, +5,
+    // padded values, 5.0), so a decimal integer literal is required first.
+    if (!/^-?(0|[1-9]\d*)$/.test(qs.limit)) return 'INVALID_LIMIT';
     const parsed = Number(qs.limit);
     if (!Number.isInteger(parsed) || parsed < bounds.min || parsed > bounds.max) {
       return 'INVALID_LIMIT';
@@ -45,6 +48,7 @@ function parseListPage(
     // Number('') is 0, so an empty or whitespace-only offset would otherwise
     // silently read as offset 0 and serve the first page with 200.
     if (qs.offset.trim() === '') return 'INVALID_OFFSET';
+    if (!/^-?(0|[1-9]\d*)$/.test(qs.offset)) return 'INVALID_OFFSET';
     const parsed = Number(qs.offset);
     if (!Number.isSafeInteger(parsed) || parsed < 0) return 'INVALID_OFFSET';
     offset = parsed;
