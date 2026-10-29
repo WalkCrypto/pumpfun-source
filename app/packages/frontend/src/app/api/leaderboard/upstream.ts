@@ -110,11 +110,20 @@ function date(value: unknown, label: string): string | null {
   return parsed;
 }
 
+/** An integer identifier, not a measure: chain ids name a chain, so a fractional value is never valid input, unlike the pnl/sol/usd measures validated by number(). */
+function integer(value: unknown, label: string): number {
+  const parsed = number(value, label);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new UpstreamValidationError(`${label} must be a safe integer.`);
+  }
+  return parsed;
+}
+
 function validateTopPositions(value: unknown, label: string): void {
   for (const [index, positionValue] of array(value, label, 5).entries()) {
     const position = record(positionValue, `${label}[${index}]`);
     text(position.mint, `${label}[${index}].mint`, 256);
-    number(position.chainId, `${label}[${index}].chainId`);
+    integer(position.chainId, `${label}[${index}].chainId`);
     nullableText(position.symbol, `${label}[${index}].symbol`, 100);
     nullableText(position.name, `${label}[${index}].name`, 500);
     nullableText(position.imageUri, `${label}[${index}].imageUri`, 2048);
