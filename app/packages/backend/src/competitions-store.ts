@@ -246,6 +246,14 @@ export class CompetitionStore {
     // the leaderboard store does for its board measures.
     for (const comp of this.competitions) {
       for (const entry of comp.entries) {
+        // Entries are addressed by (competition, entryId) in getEntryDetail
+        // and getEntryHighlights, so a blank entryId is a phantom lookup key:
+        // getEntryDetail(comp, '') would return a real entry instead of null,
+        // mirroring the blank competition id/slug guard above. Reject it at
+        // construction, like the competition identities, rather than serving it.
+        if (typeof entry.entryId !== 'string' || entry.entryId === '') {
+          throw new TypeError('Competition entry entryId must be a non-empty string');
+        }
         for (const key of ['pnlUsd', 'realizedPnlUsd', 'unrealizedPnlUsd',
           'buySpendSol', 'membersFresh', 'lastRefreshedAtMs'] as const) {
           if (!Number.isFinite(entry[key])) throw new TypeError(`Competition entry ${key} must be finite`);
