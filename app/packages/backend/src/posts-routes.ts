@@ -4,7 +4,7 @@
  * Registered as native Fastify handlers taking priority over the generic fixture-replay loop.
  * Serves deterministic data from the in-memory PostStore linked to UserStore.
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { PostStore, defaultPostStore } from './posts-store.js';
 import { sendSynthetic, errorBody, rejectDuplicateQueryKeys } from './users-routes.js';
 
@@ -37,6 +37,24 @@ function pageValue(
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed)) return null;
   return Math.min(maximum, Math.max(minimum, parsed));
+}
+
+/**
+ * Each sub-resource declares its query parameters in the contract, so an
+ * unknown key is malformed input, not a filter to ignore — the same gap the
+ * following reads closed. Returns true when it sent the 400.
+ */
+function rejectUnknownQueryKeys(
+  request: { url: string },
+  reply: FastifyReply,
+  allowed: Set<string>,
+): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+  if (unknown === undefined) return false;
+  reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+  return true;
 }
 
 export function registerPostRoutes(app: FastifyInstance, store: PostStore = defaultPostStore): void {
@@ -89,6 +107,7 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    */
   app.get('/v1/posts/:postId/replies', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'cursor']))) return reply;
     const { postId } = request.params as { postId: string };
     const qs = request.query as Record<string, string | undefined>;
 
@@ -119,6 +138,7 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    */
   app.get('/v1/posts/:postId/likers', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'offset']))) return reply;
     const { postId } = request.params as { postId: string };
     const qs = request.query as Record<string, string | undefined>;
 
@@ -147,6 +167,7 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    */
   app.get('/v1/posts/:postId/quotes', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'cursor']))) return reply;
     const { postId } = request.params as { postId: string };
     const qs = request.query as Record<string, string | undefined>;
 
@@ -177,6 +198,7 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    */
   app.get('/v1/posts/:postId/reposters', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    if (rejectUnknownQueryKeys(request, reply, new Set(['limit', 'offset']))) return reply;
     const { postId } = request.params as { postId: string };
     const qs = request.query as Record<string, string | undefined>;
 
