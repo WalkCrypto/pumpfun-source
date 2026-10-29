@@ -7,6 +7,14 @@ import { UserStore, defaultStore, DATA_SOURCE } from './users-store.js';
 
 export { DATA_SOURCE };
 
+// Keep locale ordering, but break collation equivalence with the exact ID:
+// localeCompare alone returns 0 for distinct ids such as precomposed "é"
+// and "e" + combining acute, so a locale-only tie-break leaves the served
+// order dependent on seed insertion order instead of being a total order.
+function compareUserIds(a: string, b: string): number {
+  return a.localeCompare(b) || (a === b ? 0 : a < b ? -1 : 1);
+}
+
 export interface PrizeTier {
   rankFrom: number;
   rankTo: number;
@@ -656,7 +664,7 @@ export class CompetitionStore {
       // Sort member contributions by pnlUsd descending, then userId
       members.sort((a, b) => {
         if (a.pnlUsd !== b.pnlUsd) return b.pnlUsd - a.pnlUsd;
-        return a.userId.localeCompare(b.userId);
+        return compareUserIds(a.userId, b.userId);
       });
 
       return {
@@ -741,7 +749,7 @@ export class CompetitionStore {
     // Sort overall by pnlUsd descending
     filtered.sort((a, b) => {
       if (a.pnlUsd !== b.pnlUsd) return b.pnlUsd - a.pnlUsd;
-      return a.userId.localeCompare(b.userId);
+      return compareUserIds(a.userId, b.userId);
     });
 
     const rows = filtered.slice(0, limit);
