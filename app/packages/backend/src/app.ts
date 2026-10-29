@@ -25,6 +25,7 @@ import { registerFollowingRoutes } from "./following-routes.js";
 import { FollowingStore, defaultFollowingStore } from "./following-store.js";
 import { registerLeaderboardRoutes } from "./leaderboard-routes.js";
 import { LeaderboardStore, defaultLeaderboardStore } from "./leaderboard-store.js";
+import { registerModerationRoutes } from "./moderation-routes.js";
 import { registerHomeFeedRoutes } from "./home-feed-routes.js";
 import { HomeFeedStore, defaultHomeFeedStore } from "./home-feed-store.js";
 import { registerLocalMediaRoutes, type LocalMediaOptions } from "./local-media-routes.js";
@@ -285,6 +286,7 @@ const NATIVE_ROUTES = new Set<string>([
   "GET /users/username-exists/{username}",
   "GET /users/search-v2",
   "GET /users/{id}/overview",
+  "GET /moderation/ban/address/{address}",
   "POST /profiles/verified",
   "GET /profiles/verified",
   "GET /posts",
@@ -402,6 +404,7 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
     native.addHook("preHandler", apiKeyGate);
     if (opts.portfolioBalancesStore) registerPortfolioBalancesRoutes(native, opts.portfolioBalancesStore);
     registerUserRoutes(native, store);
+    registerModerationRoutes(native, store);
     if (opts.userStore) registerSearchResolveRoutes(native, store);
     registerPostRoutes(native, postStore);
     registerCompetitionRoutes(native, compStore);
