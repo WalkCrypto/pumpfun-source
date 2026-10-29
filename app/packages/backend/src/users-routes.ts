@@ -94,6 +94,17 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.get('/v1/users', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // The list declares exactly four query parameters (sort, order, offset,
+    // limit). An unknown key is malformed input, not a filter to ignore —
+    // the same gap the pnl-leaderboard read closed.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0) {
+      const allowed = new Set(['sort', 'order', 'offset', 'limit']);
+      const unknown = [...new URLSearchParams(request.url.slice(separator + 1)).keys()].find((key) => !allowed.has(key));
+      if (unknown !== undefined) {
+        return reply.code(400).send(errorBody(400, 'UNKNOWN_QUERY_PARAMETER', { parameter: unknown }));
+      }
+    }
     const qs = request.query as Record<string, string | undefined>;
     // Contract permits any safe integer for offset/limit (including negatives).
     // Documented assumption: negatives clamp to 0 rather than producing
