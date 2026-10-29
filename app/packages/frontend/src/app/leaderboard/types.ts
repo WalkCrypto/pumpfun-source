@@ -182,7 +182,7 @@ function isTraderEntry(value: unknown): value is TraderEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.rank === "number" &&
-    Number.isFinite(value.rank) &&
+    Number.isSafeInteger(value.rank) &&
     value.rank >= 0 &&
     typeof value.walletAddress === "string" &&
     (typeof value.username === "string" || value.username === null) &&
@@ -206,7 +206,7 @@ function isCreatorEntry(value: unknown): value is CreatorEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.rank === "number" &&
-    Number.isFinite(value.rank) &&
+    Number.isSafeInteger(value.rank) &&
     value.rank >= 0 &&
     (typeof value.userId === "string" || value.userId === null) &&
     (typeof value.username === "string" || value.username === null) &&
@@ -286,6 +286,7 @@ function isCompetitionEntry(value: unknown): value is CompetitionEntry {
       value.lastRefreshedAtMs,
     ].every((number) => typeof number === "number" && number >= 0) &&
     typeof value.struck === "boolean" &&
+    Number.isSafeInteger(value.rank) &&
     (typeof value.walletAddress === "string" || value.walletAddress === null) &&
     (typeof value.username === "string" || value.username === null) &&
     typeof value.isVerified === "boolean" &&
