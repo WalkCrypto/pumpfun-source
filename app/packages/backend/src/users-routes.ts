@@ -162,6 +162,13 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    */
   app.get('/v1/users/username-exists/:username', async (request, reply) => {
     if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    // This read declares no query parameters (contract lists only the path
+    // username), so anything after '?' is unsupported input, not a filter to
+    // ignore — the same gap the users-by-id and users-overview reads closed.
+    const separator = request.url.indexOf('?');
+    if (separator >= 0 && [...new URLSearchParams(request.url.slice(separator + 1)).keys()].length > 0) {
+      return reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', { reason: 'USERNAME_EXISTS_QUERY_UNSUPPORTED' }));
+    }
     const { username } = request.params as { username: string };
     return sendSynthetic(reply, 200, { exists_flag: store.usernameExists(username) });
   });
