@@ -134,18 +134,30 @@ export class LeaderboardStore {
     return entry.pnlUsd;
   }
 
-  /** Top positions icons are capped at 5; 0 means count only; the default is 3. */
+  /**
+   * Top positions icons are capped at 5; 0 means count only; the default is 3.
+   * A supplied value must be a safe integer: the route already rejects
+   * fractional and non-finite values with 400, and a direct store read must
+   * not silently truncate them or fall back to the default instead.
+   */
   private clampPositionsLimit(positionsLimit: number | undefined): number {
-    if (positionsLimit === undefined || !Number.isFinite(positionsLimit)) return 3;
-    const truncated = Math.trunc(positionsLimit);
-    if (truncated <= 0) return 0;
-    return Math.min(5, truncated);
+    if (positionsLimit === undefined) return 3;
+    if (!Number.isSafeInteger(positionsLimit))
+      throw new RangeError('Invalid leaderboard positionsLimit');
+    if (positionsLimit <= 0) return 0;
+    return Math.min(5, positionsLimit);
   }
 
-  /** Rows served; default and ceiling 100, never negative. */
+  /**
+   * Rows served; default and ceiling 100, never negative. A supplied value
+   * must be a safe integer, matching the route's admission: fractional and
+   * non-finite values throw instead of truncating or falling back to 100.
+   */
   private clampLimit(limit: number | undefined): number {
-    if (limit === undefined || !Number.isFinite(limit)) return 100;
-    return Math.min(100, Math.max(0, Math.trunc(limit)));
+    if (limit === undefined) return 100;
+    if (!Number.isSafeInteger(limit))
+      throw new RangeError('Invalid leaderboard limit');
+    return Math.min(100, Math.max(0, limit));
   }
 
   private windowStartSec(period: Period): number {
