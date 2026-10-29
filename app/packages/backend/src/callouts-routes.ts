@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { CalloutListError } from "./callout-list-query.js";
 import { CalloutLookupError, type CalloutsStore } from "./callouts-store.js";
+import { errorBody } from "./users-routes.js";
 
 export const CALLOUTS_NATIVE_ROUTES = new Set([
   "GET /callout/{calloutId}",
@@ -20,31 +21,22 @@ export function registerCalloutRoutes(
       if (query.getAll(key).length !== 1)
         return reply
           .code(400)
-          .send({
-            error: "BAD_REQUEST",
-            reason: "CALLOUT_LOOKUP_QUERY_INVALID",
-          });
+          .send(errorBody(400, "BAD_REQUEST", { reason: "CALLOUT_LOOKUP_QUERY_INVALID" }));
       if (key !== "quotesLimit" && key !== "chain")
         return reply
           .code(501)
-          .send({
-            error: "COMPATIBILITY_NOT_IMPLEMENTED",
-            reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED",
-          });
+          .send(errorBody(501, "COMPATIBILITY_NOT_IMPLEMENTED", { reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED" }));
     }
     const limit = query.get("quotesLimit") ?? "0";
     if (!/^(0|[1-9]\d*)$/.test(limit) || Number(limit) > 20)
       return reply
         .code(400)
-        .send({ error: "BAD_REQUEST", reason: "CALLOUT_LOOKUP_QUERY_INVALID" });
+        .send(errorBody(400, "BAD_REQUEST", { reason: "CALLOUT_LOOKUP_QUERY_INVALID" }));
     // The materialization has no cross-chain resolver or complete reply-quote carousel.
     if (query.has("chain") || Number(limit) !== 0)
       return reply
         .code(501)
-        .send({
-          error: "COMPATIBILITY_NOT_IMPLEMENTED",
-          reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED",
-        });
+        .send(errorBody(501, "COMPATIBILITY_NOT_IMPLEMENTED", { reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED" }));
     const { userId, coinMint } = request.params as {
       userId: string;
       coinMint: string;
@@ -60,10 +52,7 @@ export function registerCalloutRoutes(
       if (!(error instanceof CalloutLookupError)) throw error;
       return reply
         .code(501)
-        .send({
-          error: "COMPATIBILITY_NOT_IMPLEMENTED",
-          reason: error.message,
-        });
+        .send(errorBody(501, "COMPATIBILITY_NOT_IMPLEMENTED", { reason: error.message }));
     }
   });
   app.get("/v1/callout/list/:userId", async (request, reply) => {
@@ -83,13 +72,11 @@ export function registerCalloutRoutes(
         .send(response);
     } catch (error) {
       if (!(error instanceof CalloutListError)) throw error;
-      return reply.code(error.status).send({
-        error:
-          error.status === 501
-            ? "COMPATIBILITY_NOT_IMPLEMENTED"
-            : "BAD_REQUEST",
-        reason: error.reason,
-      });
+      return reply.code(error.status).send(errorBody(
+        error.status,
+        error.status === 501 ? "COMPATIBILITY_NOT_IMPLEMENTED" : "BAD_REQUEST",
+        { reason: error.reason },
+      ));
     }
   });
   app.get("/v1/callout/:calloutId", async (request, reply) => {
@@ -101,10 +88,7 @@ export function registerCalloutRoutes(
     ) {
       return reply
         .code(501)
-        .send({
-          error: "COMPATIBILITY_NOT_IMPLEMENTED",
-          reason: "CALLOUT_QUERY_UNSUPPORTED",
-        });
+        .send(errorBody(501, "COMPATIBILITY_NOT_IMPLEMENTED", { reason: "CALLOUT_QUERY_UNSUPPORTED" }));
     }
     const { calloutId } = request.params as { calloutId: string };
     return reply

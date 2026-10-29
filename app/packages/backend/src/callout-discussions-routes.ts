@@ -3,6 +3,7 @@ import {
   CalloutDiscussionError,
   type CalloutDiscussionsStore,
 } from "./callout-discussions-store.js";
+import { errorBody } from "./users-routes.js";
 export const CALLOUT_DISCUSSIONS_NATIVE_ROUTES = new Set([
   "GET /callout/{calloutId}/replies",
   "GET /callout/replies/{replyId}/chain",
@@ -48,13 +49,11 @@ export function registerCalloutDiscussionRoutes(
         if (!(error instanceof CalloutDiscussionError)) throw error;
         return reply
           .code(error.status)
-          .send({
-            error:
-              error.status === 501
-                ? "COMPATIBILITY_NOT_IMPLEMENTED"
-                : "BAD_REQUEST",
-            reason: error.reason,
-          });
+          .send(errorBody(
+            error.status,
+            error.status === 501 ? "COMPATIBILITY_NOT_IMPLEMENTED" : "BAD_REQUEST",
+            { reason: error.reason },
+          ));
       }
     });
 }
