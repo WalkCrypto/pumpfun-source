@@ -190,6 +190,15 @@ export class PostStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
+    // The served post schema (Shared_47a8d5353d95) restricts kind to its
+    // enum, and the store's own routing keys off it: a non-repost skips the
+    // repost-target check and any row with a parent appears in replies.
+    // Reject a kind outside the enum at construction instead of serving it
+    // verbatim, like the store already rejects duplicate identities.
+    const KINDS = new Set(['root', 'reply', 'quote', 'repost', null]);
+    for (const post of this.posts) {
+      if (!KINDS.has(post.kind)) throw new TypeError('Invalid post kind');
+    }
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
