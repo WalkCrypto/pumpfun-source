@@ -20,7 +20,9 @@ import { sendSynthetic, errorBody, rejectDuplicateQueryKeys } from './users-rout
  * unchanged.
  */
 function rejectInvalidNumbers(query: Record<string, string | undefined>, keys: string[], reply: FastifyReply): boolean {
-  if (keys.some(key => query[key] !== undefined && (!query[key]!.trim() || !Number.isFinite(Number(query[key])) || !Number.isInteger(Number(query[key]))))) {
+  // Number() also accepts non-decimal spellings (0x10, 1e1, 010, +5,
+  // padded values, 5.0), so a decimal integer literal is required first.
+  if (keys.some(key => query[key] !== undefined && (!query[key]!.trim() || !/^-?(0|[1-9]\d*)$/.test(query[key]!) || !Number.isFinite(Number(query[key])) || !Number.isInteger(Number(query[key]))))) {
     reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
     return true;
   }
