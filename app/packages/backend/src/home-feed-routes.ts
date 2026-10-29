@@ -171,8 +171,13 @@ function list<T extends string>(
   field: string,
   values: readonly T[],
 ): T[] {
-  const raw = single(query, field);
+  // Allow an empty value through single(): a client serializing an empty
+  // array sends an empty value, which is the valid empty selection (no
+  // filter), not one empty item. The contract arrays carry a maximum item
+  // count and no minimum, the same shape as user-trades types=.
+  const raw = single(query, field, { allowEmpty: true });
   if (raw === undefined) return [];
+  if (raw === '') return [];
   const items = raw.split(",");
   if (
     items.length === 0 ||
