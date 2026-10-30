@@ -253,6 +253,12 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
           (rank) =>
             typeof rank === "number" && Number.isFinite(rank) && rank >= 0,
         ) &&
+        // A rank-0 tier names a rank that does not exist and a reversed
+        // tier names no rank at all — the domain-layer sibling of the
+        // upstream prize-range check. The per-field check above guarantees
+        // both ranks are numbers before these comparisons run.
+        (prize.rankFrom as number) >= 1 &&
+        (prize.rankTo as number) >= (prize.rankFrom as number) &&
         typeof prize.amount === "string" &&
         prize.amount.length <= 200,
     ) &&
