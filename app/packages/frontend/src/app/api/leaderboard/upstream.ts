@@ -227,11 +227,27 @@ function parseCreatorEntry(value: unknown, index: number): CreatorEntry {
 
 function parseCreators(value: unknown, page: number): CreatorsData {
   const payload = record(value, "creator payout leaderboard");
+  const entries = array(payload.entries, "entries", CREATOR_PAGE_SIZE).map(
+    parseCreatorEntry,
+  );
+  // One creator holds exactly one row on a board: a repeated non-null userId
+  // would render the same creator twice with two different ranks. Null
+  // userIds identify no creator, so they are not compared — the same rule
+  // the trader board applies to wallet addresses.
+  const userIds = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    if (entry.userId !== null) {
+      if (userIds.has(entry.userId)) {
+        throw new UpstreamValidationError(
+          `entries[${index}].userId repeats a creator already on the board.`,
+        );
+      }
+      userIds.add(entry.userId);
+    }
+  }
   return {
     kind: "creators",
-    entries: array(payload.entries, "entries", CREATOR_PAGE_SIZE).map(
-      parseCreatorEntry,
-    ),
+    entries,
     totalEarners: nonNegativeNumber(payload.totalEarners, "totalEarners"),
     generatedAt: date(payload.generatedAt, "generatedAt"),
     page,
