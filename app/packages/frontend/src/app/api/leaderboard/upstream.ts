@@ -313,10 +313,22 @@ function parseCompetitionSummary(
   }
   const prizes = parseCompetitionPrizes(competition.prizes, `${label}.prizes`);
   nullableText(competition.imageUrl, `${label}.imageUrl`, 2048);
+  // One entryId names one row: the client keys competition rows by entryId,
+  // so a repeated id across top and winners would collide in reconciliation
+  // and one row would silently replace the other. This mirrors the trader
+  // board's duplicate-wallet check; ids are scoped per competition, so only
+  // the top+winners pair of this summary is compared.
+  const entryIds = new Set<string>();
   for (const key of ["top", "winners"] as const) {
-    array(competition[key], `${label}.${key}`, 100).forEach((entry, index) =>
-      parseCompetitionEntry(entry, `${label}.${key}[${index}]`),
-    );
+    array(competition[key], `${label}.${key}`, 100).forEach((entry, index) => {
+      const parsed = parseCompetitionEntry(entry, `${label}.${key}[${index}]`);
+      if (entryIds.has(parsed.entryId)) {
+        throw new UpstreamValidationError(
+          `${label}.${key}[${index}].entryId repeats an entry already in this competition.`,
+        );
+      }
+      entryIds.add(parsed.entryId);
+    });
   }
   return {
     id: text(competition.id, `${label}.id`, 200),
