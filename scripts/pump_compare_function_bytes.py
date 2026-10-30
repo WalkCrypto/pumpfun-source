@@ -50,6 +50,8 @@ def selected_window(stream, original_start):
             raise ValueError('selected Pump window inventory is missing columns')
         if any(reader.fieldnames.count(name) != 1 for name in WINDOW_COLUMNS):
             raise ValueError('selected Pump window inventory has duplicate required columns')
+
+
         matches = []
         for row in reader:
             if row['program'] != 'pump' or row['variant'] != 'selected':
