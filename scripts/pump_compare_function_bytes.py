@@ -55,6 +55,10 @@ def selected_window(stream, original_start):
             start, end = int(row['original_start']), int(row['original_end'])
         except ValueError:
             raise ValueError('invalid bounds in selected Pump window inventory')
+        if start % 8 or end % 8:
+            raise ValueError(
+                f'invalid selected Pump window bounds at {start:#x}'
+            )
         if start == original_start:
             if end <= start:
                 raise ValueError(
