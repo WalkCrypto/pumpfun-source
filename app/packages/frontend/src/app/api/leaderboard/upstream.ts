@@ -66,6 +66,19 @@ function nullableText(
   return value === null ? null : text(value, label, maximum);
 }
 
+// Identity fields are used as React keys and identity labels, so a blank
+// value is not a usable identity even though text() accepts it: a blank
+// trader wallet, competition id/slug, entry id, or position mint would
+// render as an empty label and collide with every other blank row. The
+// mayhem validator already rejects blank identities the same way.
+function identity(value: unknown, label: string, maximum = 2048): string {
+  const parsed = text(value, label, maximum);
+  if (parsed === "") {
+    throw new UpstreamValidationError(`${label} must be a non-empty string.`);
+  }
+  return parsed;
+}
+
 function number(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new UpstreamValidationError(`${label} must be a finite number.`);
@@ -113,7 +126,7 @@ function date(value: unknown, label: string): string | null {
 function validateTopPositions(value: unknown, label: string): void {
   for (const [index, positionValue] of array(value, label, 5).entries()) {
     const position = record(positionValue, `${label}[${index}]`);
-    text(position.mint, `${label}[${index}].mint`, 256);
+    identity(position.mint, `${label}[${index}].mint`, 256);
     number(position.chainId, `${label}[${index}].chainId`);
     nullableText(position.symbol, `${label}[${index}].symbol`, 100);
     nullableText(position.name, `${label}[${index}].name`, 500);
@@ -130,7 +143,7 @@ function parseTraderEntry(value: unknown, index: number): TraderEntry {
   nullableText(row.profileImage, `entries[${index}].profileImage`, 2048);
   return {
     rank: nonNegativeNumber(row.rank, `entries[${index}].rank`),
-    walletAddress: text(
+    walletAddress: identity(
       row.walletAddress,
       `entries[${index}].walletAddress`,
       256,
@@ -191,7 +204,7 @@ function parseCreatorEntry(value: unknown, index: number): CreatorEntry {
   nullableText(row.twitterUrl, `entries[${index}].twitterUrl`, 2048);
   const wallets = array(row.wallets, `entries[${index}].wallets`, 100).map(
     (wallet, walletIndex) =>
-      text(wallet, `entries[${index}].wallets[${walletIndex}]`, 256),
+      identity(wallet, `entries[${index}].wallets[${walletIndex}]`, 256),
   );
   if (wallets.length === 0) {
     throw new UpstreamValidationError(
@@ -270,8 +283,8 @@ function parseCompetitionEntry(
   nonNegativeNumber(row.positionsCount, `${label}.positionsCount`);
   nullableText(row.profileImageUrl, `${label}.profileImageUrl`, 2048);
   return {
-    entryId: text(row.entryId, `${label}.entryId`, 200),
-    participantId: text(row.participantId, `${label}.participantId`, 200),
+    entryId: identity(row.entryId, `${label}.entryId`, 200),
+    participantId: identity(row.participantId, `${label}.participantId`, 200),
     kind,
     rank: nonNegativeNumber(row.rank, `${label}.rank`),
     pnlUsd: number(row.pnlUsd, `${label}.pnlUsd`),
@@ -319,8 +332,8 @@ function parseCompetitionSummary(
     );
   }
   return {
-    id: text(competition.id, `${label}.id`, 200),
-    slug: text(competition.slug, `${label}.slug`, 200),
+    id: identity(competition.id, `${label}.id`, 200),
+    slug: identity(competition.slug, `${label}.slug`, 200),
     kind,
     title: text(competition.title, `${label}.title`, 500),
     description: text(competition.description, `${label}.description`, 5000),
