@@ -387,13 +387,29 @@ function parseCompetitionDetail(value: unknown): CompetitionDetailData {
   const board = record(payload.leaderboard, "leaderboard");
   nonNegativeNumber(board.startSec, "leaderboard.startSec");
   nonNegativeNumber(board.endSec, "leaderboard.endSec");
+  // One entryId names one row: the client keys board rows by entryId, so a
+  // repeated id would collide in reconciliation — the detail-board
+  // counterpart of the summary top+winners check.
+  const entryIds = new Set<string>();
+  const entries = array(board.entries, "leaderboard.entries", 100).map(
+    (entry, index) => {
+      const parsed = parseCompetitionEntry(
+        entry,
+        `leaderboard.entries[${index}]`,
+      );
+      if (entryIds.has(parsed.entryId)) {
+        throw new UpstreamValidationError(
+          `leaderboard.entries[${index}].entryId repeats an entry already on this board.`,
+        );
+      }
+      entryIds.add(parsed.entryId);
+      return parsed;
+    },
+  );
   return {
     kind: "competition-detail",
     competition: parseCompetitionSummary(payload.competition, "competition"),
-    entries: array(board.entries, "leaderboard.entries", 100).map(
-      (entry, index) =>
-        parseCompetitionEntry(entry, `leaderboard.entries[${index}]`),
-    ),
+    entries,
     totalRanked: nonNegativeNumber(
       board.totalRanked,
       "leaderboard.totalRanked",
