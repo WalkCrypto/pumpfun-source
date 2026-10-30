@@ -87,6 +87,7 @@ jobs:
               python -B tests/test_pump_create_nested_pinned_image.py
               python -B tests/test_mayhem_differential_pinned_image.py
               python -B tests/test_aggregate_pinned_image.py
+              python -B tests/test_pump_validators_pinned_image.py
               python -B tests/test_two_curve_optimization_guard.py
               python -O -B tests/test_two_curve_optimization_guard.py
               python -B scripts/test_dispatch_recovery.py
@@ -108,6 +109,7 @@ jobs:
               python -B tests/test_verify_dependencies_optimization.py
               python -B tests/test_recovered_builds_optimization.py
               python -B scripts/test_mayhem_burn_sequence_optimization.py
+              python -B scripts/test_macos_v144_qualification_optimization.py
               python -B scripts/test_mayhem_initialize_state_optimization.py
               python -B scripts/test_fees_crank_probe_optimization.py
               python -B scripts/test_constant_product_range_pinning.py
@@ -122,6 +124,9 @@ jobs:
               python -B scripts/test_current673_macos_optimized_mode.py
               python -B scripts/test_pump_differential_optimized_mode.py
               python -B scripts/test_pump_validate_constant_product_optimization.py
+              python -B scripts/test_pump_with_captured_loader_paths.py
+              python -B tests/test_fees_external_codec_pinned_image.py
+              python -B scripts/test_pump_validate_parallel.py
               python -B scripts/test_pump_validate_volume_optimization.py
               python -B scripts/test_pump_validate_sell_accounting_optimization.py
               python -B scripts/test_imported_lab_optimization.py
