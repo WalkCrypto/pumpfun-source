@@ -81,6 +81,21 @@ function nonNegativeNumber(value: unknown, label: string): number {
   return parsed;
 }
 
+/**
+ * An epoch timestamp in whole seconds or milliseconds, not a measure:
+ * upstream timestamps are integers by construction, so a fractional value is
+ * never valid input, unlike the pnl/sol/usd measures validated by
+ * nonNegativeNumber(). Named distinctly from the ranks/counts helper in
+ * open #1861 so the two fixes do not collide on merge.
+ */
+function nonNegativeTimestamp(value: unknown, label: string): number {
+  const parsed = nonNegativeNumber(value, label);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new UpstreamValidationError(`${label} must be a safe integer.`);
+  }
+  return parsed;
+}
+
 function boolean(value: unknown, label: string): boolean {
   if (typeof value !== "boolean") {
     throw new UpstreamValidationError(`${label} must be a boolean.`);
@@ -161,7 +176,7 @@ function parseTraderEntry(value: unknown, index: number): TraderEntry {
       row.positionsCount,
       `entries[${index}].positionsCount`,
     ),
-    lastRefreshedAtMs: nonNegativeNumber(
+    lastRefreshedAtMs: nonNegativeTimestamp(
       row.lastRefreshedAtMs,
       `entries[${index}].lastRefreshedAtMs`,
     ),
@@ -180,7 +195,7 @@ function parseTraders(value: unknown): TradersData {
     kind: "traders",
     entries: array(payload.entries, "entries", 100).map(parseTraderEntry),
     periodLabel: text(payload.periodLabel, "periodLabel", 200),
-    windowStartSec: nonNegativeNumber(payload.windowStartSec, "windowStartSec"),
+    windowStartSec: nonNegativeTimestamp(payload.windowStartSec, "windowStartSec"),
   };
 }
 
@@ -280,7 +295,7 @@ function parseCompetitionEntry(
     memberCount: nonNegativeNumber(row.memberCount, `${label}.memberCount`),
     membersFresh: nonNegativeNumber(row.membersFresh, `${label}.membersFresh`),
     struck: boolean(row.struck, `${label}.struck`),
-    lastRefreshedAtMs: nonNegativeNumber(
+    lastRefreshedAtMs: nonNegativeTimestamp(
       row.lastRefreshedAtMs,
       `${label}.lastRefreshedAtMs`,
     ),
@@ -385,8 +400,8 @@ function parseCompetitions(value: unknown): CompetitionsData {
 function parseCompetitionDetail(value: unknown): CompetitionDetailData {
   const payload = record(value, "competition detail");
   const board = record(payload.leaderboard, "leaderboard");
-  nonNegativeNumber(board.startSec, "leaderboard.startSec");
-  nonNegativeNumber(board.endSec, "leaderboard.endSec");
+  nonNegativeTimestamp(board.startSec, "leaderboard.startSec");
+  nonNegativeTimestamp(board.endSec, "leaderboard.endSec");
   return {
     kind: "competition-detail",
     competition: parseCompetitionSummary(payload.competition, "competition"),
@@ -398,7 +413,7 @@ function parseCompetitionDetail(value: unknown): CompetitionDetailData {
       board.totalRanked,
       "leaderboard.totalRanked",
     ),
-    builtAtMs: nonNegativeNumber(board.builtAtMs, "leaderboard.builtAtMs"),
+    builtAtMs: nonNegativeTimestamp(board.builtAtMs, "leaderboard.builtAtMs"),
     isFinal: boolean(board.isFinal, "leaderboard.isFinal"),
   };
 }
