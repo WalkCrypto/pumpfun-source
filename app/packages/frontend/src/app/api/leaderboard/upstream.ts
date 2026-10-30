@@ -243,7 +243,7 @@ function parseCompetitionPrizes(
   value: unknown,
   label: string,
 ): CompetitionSummary["prizes"] {
-  return array(value, label, 100).map((prizeValue, index) => {
+  const prizes = array(value, label, 100).map((prizeValue, index) => {
     const prize = record(prizeValue, `${label}[${index}]`);
     return {
       rankFrom: nonNegativeNumber(
@@ -254,6 +254,24 @@ function parseCompetitionPrizes(
       amount: text(prize.amount, `${label}[${index}].amount`, 200),
     };
   });
+  // The contract describes rankFrom as a 1-based first rank and rankTo as an
+  // inclusive last rank >= rankFrom. Per-field non-negativity alone admits a
+  // rank-0 tier and a reversed 5..1 tier, which the backend store now rejects
+  // but the upstream validator would still normalize and serve; a reversed
+  // tier names no rank at all, and a rank-0 tier names a rank that does not
+  // exist. Fractional ranks are covered separately by the integer guard.
+  for (const [index, prize] of prizes.entries()) {
+    if (
+      prize.rankFrom < 1 ||
+      prize.rankTo < 1 ||
+      prize.rankTo < prize.rankFrom
+    ) {
+      throw new UpstreamValidationError(
+        `${label}[${index}] prize range must start at rank 1 or later and end at or after its start.`,
+      );
+    }
+  }
+  return prizes;
 }
 
 function parseCompetitionEntry(
