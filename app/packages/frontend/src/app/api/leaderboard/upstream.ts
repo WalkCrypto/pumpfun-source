@@ -374,12 +374,29 @@ function parseCompetitionBucket(
 
 function parseCompetitions(value: unknown): CompetitionsData {
   const payload = record(value, "competitions");
-  return {
-    kind: "competitions",
-    upcoming: parseCompetitionBucket(payload.upcoming, "upcoming", 100),
-    live: parseCompetitionBucket(payload.live, "live", 100),
-    past: parseCompetitionBucket(payload.past, "past", 50),
-  };
+  const upcoming = parseCompetitionBucket(payload.upcoming, "upcoming", 100);
+  const live = parseCompetitionBucket(payload.live, "live", 100);
+  const past = parseCompetitionBucket(payload.past, "past", 50);
+  // One competition has exactly one phase, so it belongs in exactly one
+  // bucket: an id repeated across buckets would render the same card twice
+  // (the client keys competition cards by id) and contradicts its own phase.
+  // This mirrors the trader board's duplicate-wallet check.
+  const ids = new Set<string>();
+  for (const [bucket, summaries] of [
+    ["upcoming", upcoming],
+    ["live", live],
+    ["past", past],
+  ] as const) {
+    for (const [index, summary] of summaries.entries()) {
+      if (ids.has(summary.id)) {
+        throw new UpstreamValidationError(
+          `${bucket}[${index}].id repeats a competition already listed.`,
+        );
+      }
+      ids.add(summary.id);
+    }
+  }
+  return { kind: "competitions", upcoming, live, past };
 }
 
 function parseCompetitionDetail(value: unknown): CompetitionDetailData {
