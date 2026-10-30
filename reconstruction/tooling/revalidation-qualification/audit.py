@@ -619,6 +619,20 @@ def audit(repo, output, timeout_seconds=60.0, cleanup_seconds=1.0):
                                     if path.is_dir() and not path.name.startswith("."))
         if final_packet_names != packet_names:
             raise ValueError("research packet census changed during verification")
+        # A census of names alone does not bind content: a later packet's
+        # verifier could replace an already-audited packet's files, and the
+        # published inputs would still describe the pre-swap inventory.
+        # Re-snapshot every packet and refuse to publish if any audited
+        # identity moved after its own audit. Packets whose post-audit
+        # snapshot already failed keep their published fail row.
+        for packet in packets:
+            audited_after = inputs[packet.name]["after"].get("identity_sha256")
+            if audited_after is not None:
+                fresh = packet_snapshot(packet)
+                if fresh["identity_sha256"] != audited_after:
+                    raise ValueError(
+                        "packet identity changed during verification: " + packet.name
+                    )
         elapsed = time.monotonic() - started
         summary = summarize(results, elapsed)
         control_inputs_after = {
