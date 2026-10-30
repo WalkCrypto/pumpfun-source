@@ -54,6 +54,7 @@ jobs:
               python -B scripts/test_dispatch_recovery.py
               python -B scripts/test_pump_compare_window_alignment.py
               python -B scripts/test_pump_compare_window_columns.py
+              python -B scripts/test_pump_exact_body_inventory_columns.py
               python -B reconstruction/tooling/parallel-input-preservation-20261030/test_input_preservation.py
               python -B scripts/test_pump_compare_window_strict_csv.py
               python -B scripts/test_replay_macos_frontier_optimization.py
