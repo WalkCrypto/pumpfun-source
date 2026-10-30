@@ -296,10 +296,21 @@ function isCompetitionEntry(value: unknown): value is CompetitionEntry {
 function isData(value: unknown): value is LeaderboardData {
   if (!isRecord(value) || typeof value.kind !== "string") return false;
   if (value.kind === "traders") {
+    if (
+      !Array.isArray(value.entries) ||
+      value.entries.length > 100 ||
+      !value.entries.every(isTraderEntry)
+    ) {
+      return false;
+    }
+    // Domain-layer sibling of the upstream trader check: one wallet holds
+    // exactly one rank on a board. The per-entry check above guarantees
+    // every entry carries a string walletAddress before this comparison runs.
+    const wallets = (value.entries as { walletAddress: string }[]).map(
+      (entry) => entry.walletAddress,
+    );
     return (
-      Array.isArray(value.entries) &&
-      value.entries.length <= 100 &&
-      value.entries.every(isTraderEntry) &&
+      new Set(wallets).size === wallets.length &&
       typeof value.periodLabel === "string" &&
       typeof value.windowStartSec === "number" &&
       Number.isFinite(value.windowStartSec)
