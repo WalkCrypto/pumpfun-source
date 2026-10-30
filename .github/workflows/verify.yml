@@ -129,6 +129,7 @@ jobs:
               python -O -B tests/test_function_body_file_ranges.py
               python -B reconstruction/harness/test_treediff_line_boundaries.py
               python -B reconstruction/harness/test_score_inputs.py
+              python -B reconstruction/harness/test_score_empty_baseline.py
               python -B reconstruction/harness/test_score_symbol_admission.py
               python -B reconstruction/pump-main/test_ledger_negative_limit.py
               python -B reconstruction/diagnostics/census-portability/test_output_guard.py
@@ -189,6 +190,7 @@ jobs:
               python research/tooling-token-program-constant-detector-20261029/verify.py
               python -B -m unittest discover -s reconstruction/capture-rpc-retry -p 'test_*.py'
               python -B reconstruction/verification/donation-relay-idl-lifecycle/test_lifecycle.py
+              python -B reconstruction/verification/donation-relay-idl-lifecycle/test_verify_steps.py
               python -B reconstruction/verification/donation-relay-stateful/test_stateful.py
               python -B reconstruction/verification/pump-migration-lifecycle/test_lifecycle.py
               python -B reconstruction/verification/mayhem-dispatch-boundaries/test_inventory.py
