@@ -23,9 +23,11 @@ class MinimizeOracleEncodingTests(unittest.TestCase):
             oracle = Path(temporary) / "oracle.json"
             oracle.write_bytes(
                 json.dumps(
-                    {"command": ["rustc"], "note": "SOL \u2192 tokens"}
+                    {"command": ["rustc"], "note": "SOL \u2192 tokens"},
+                    ensure_ascii=False,
                 ).encode("utf-8")
             )
+            self.assertIn(b"\xe2\x86\x92", oracle.read_bytes())
             child = (
                 "import sys, minimize_experiment\n"
                 "from pathlib import Path\n"
