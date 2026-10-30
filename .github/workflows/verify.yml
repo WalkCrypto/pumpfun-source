@@ -44,6 +44,7 @@ jobs:
               python -I -B tests/test_dispatch_root.py
               python -I -B tests/test_analyze_input_admission.py
               python scripts/test_tooling.py
+              python -B tests/test_verify_dependencies_optimization.py
               python -B -X utf8 tests/test_dispatch_idl_encoding.py
               python -B tests/test_function_body_file_ranges.py
               python -O -B tests/test_function_body_file_ranges.py
