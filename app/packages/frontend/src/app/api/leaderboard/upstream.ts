@@ -318,6 +318,31 @@ function parseCompetitionSummary(
       parseCompetitionEntry(entry, `${label}.${key}[${index}]`),
     );
   }
+  // A window that ends before it opens names no valid interval — the same
+  // empty-range defect as a reversed prize tier or member bound. Compared by
+  // parsed instant, not lexicographically, so differing UTC offsets compare
+  // correctly; a null endpoint leaves the pair unchecked, and equal endpoints
+  // (a zero-length window) stay valid.
+  const registrationOpensAt = date(
+    competition.registrationOpensAt,
+    `${label}.registrationOpensAt`,
+  );
+  const registrationClosesAt = date(
+    competition.registrationClosesAt,
+    `${label}.registrationClosesAt`,
+  );
+  const startsAt = date(competition.startsAt, `${label}.startsAt`);
+  const endsAt = date(competition.endsAt, `${label}.endsAt`);
+  for (const [from, to, name] of [
+    [registrationOpensAt, registrationClosesAt, "registration"],
+    [startsAt, endsAt, "competition"],
+  ] as const) {
+    if (from !== null && to !== null && Date.parse(from) > Date.parse(to)) {
+      throw new UpstreamValidationError(
+        `${label} ${name} window must not end before it starts.`,
+      );
+    }
+  }
   return {
     id: text(competition.id, `${label}.id`, 200),
     slug: text(competition.slug, `${label}.slug`, 200),
@@ -334,16 +359,10 @@ function parseCompetitionSummary(
       competition.maxMembers,
       `${label}.maxMembers`,
     ),
-    registrationOpensAt: date(
-      competition.registrationOpensAt,
-      `${label}.registrationOpensAt`,
-    ),
-    registrationClosesAt: date(
-      competition.registrationClosesAt,
-      `${label}.registrationClosesAt`,
-    ),
-    startsAt: date(competition.startsAt, `${label}.startsAt`),
-    endsAt: date(competition.endsAt, `${label}.endsAt`),
+    registrationOpensAt,
+    registrationClosesAt,
+    startsAt,
+    endsAt,
     maxEntries: nonNegativeNumber(
       competition.maxEntries,
       `${label}.maxEntries`,
