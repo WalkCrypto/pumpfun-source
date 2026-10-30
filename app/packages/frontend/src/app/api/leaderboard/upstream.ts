@@ -385,8 +385,16 @@ function parseCompetitions(value: unknown): CompetitionsData {
 function parseCompetitionDetail(value: unknown): CompetitionDetailData {
   const payload = record(value, "competition detail");
   const board = record(payload.leaderboard, "leaderboard");
-  nonNegativeNumber(board.startSec, "leaderboard.startSec");
-  nonNegativeNumber(board.endSec, "leaderboard.endSec");
+  // A board window that ends before it starts names no valid interval — the
+  // same empty-range defect as the summary date windows, which the summary
+  // parser already rejects. Equal endpoints (a zero-length window) stay valid.
+  const startSec = nonNegativeNumber(board.startSec, "leaderboard.startSec");
+  const endSec = nonNegativeNumber(board.endSec, "leaderboard.endSec");
+  if (endSec < startSec) {
+    throw new UpstreamValidationError(
+      "leaderboard window must not end before it starts.",
+    );
+  }
   return {
     kind: "competition-detail",
     competition: parseCompetitionSummary(payload.competition, "competition"),
