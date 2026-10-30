@@ -12,7 +12,23 @@ import subprocess
 import tempfile
 import uuid
 
-IGNORED = {'.git', 'target', '__pycache__'}
+# Generated directories are never source, but only the experiment root's
+# target directory is generated build output: nested target directories can
+# contain source, mirroring source_inputs and build_source_manifest.
+ALWAYS_IGNORED = ('.git', '__pycache__')
+
+
+def stage_ignore(source):
+    """copytree ignore matching manifest(): target only at the source root."""
+    source = Path(source)
+
+    def ignore(directory, names):
+        ignored = [name for name in names if name in ALWAYS_IGNORED]
+        if Path(directory) == source and 'target' in names:
+            ignored.append('target')
+        return ignored
+
+    return ignore
 
 
 def digest(data): return hashlib.sha256(data).hexdigest()
@@ -24,7 +40,14 @@ def manifest(source):
         raise ValueError('source must be a real directory')
     result = {}
     for directory, dirs, files in os.walk(source):
-        dirs[:] = sorted(d for d in dirs if d not in IGNORED)
+        dirs[:] = sorted(d for d in dirs if d not in ALWAYS_IGNORED)
+        # Validate directory links before the root-target exclusion, so a
+        # symlinked root target is rejected instead of silently skipped.
+        for name in dirs:
+            if (Path(directory) / name).is_symlink():
+                raise ValueError('source symlinks are unsupported')
+        if Path(directory) == source:
+            dirs[:] = [d for d in dirs if d != 'target']
         for name in dirs + sorted(files):
             path = Path(directory) / name
             if path.is_symlink(): raise ValueError('source symlinks are unsupported')
@@ -47,7 +70,7 @@ def input_hashes(inputs):
 def identity(source, command, inputs, timeout):
     if not isinstance(command, list) or not command or not all(isinstance(x, str) and x for x in command):
         raise ValueError('command must be a nonempty argv array')
-    if not isinstance(timeout, (int, float)) or not 0 < timeout <= 86400:
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 86400:
         raise ValueError('timeout must be positive and at most one day')
     executable = shutil.which(command[0])
     if executable is None: raise ValueError('command executable is unavailable')
@@ -68,6 +91,9 @@ def atomic_json(path, value):
 
 
 def artifacts(attempt):
+    output = attempt / 'output'
+    if output.is_symlink() or not output.is_dir():
+        raise ValueError('retained output must be a real directory')
     result = {}
     for path in [attempt / 'stdout.log', attempt / 'stderr.log', *sorted((attempt / 'output').rglob('*'))]:
         if path.is_symlink(): raise ValueError('output symlinks are unsupported')
@@ -94,13 +120,15 @@ def run_trial(source, command, destination, inputs=(), timeout=300):
             attempt = destination / name
             if previous.get('key') == key and previous.get('status') in ('pass', 'fail'):
                 try:
-                    valid = not attempt.is_symlink() and artifacts(attempt) == previous['artifacts']
+                    valid = (not attempt.is_symlink()
+                             and manifest(attempt / 'source') == admission['source']
+                             and artifacts(attempt) == previous['artifacts'])
                 except (OSError, ValueError): valid = False
                 if valid: return dict(previous, reused=True)
         attempt = destination / ('attempt-' + uuid.uuid4().hex)
         attempt.mkdir()
         copied, work, output = (attempt / x for x in ('source', 'work', 'output'))
-        shutil.copytree(source, copied, ignore=shutil.ignore_patterns(*IGNORED))
+        shutil.copytree(source, copied, ignore=stage_ignore(source))
         if manifest(copied) != admission['source'] or manifest(source) != admission['source']:
             raise ValueError('source changed while copying')
         work.mkdir(); output.mkdir()
@@ -137,16 +165,23 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--max-trials', type=int, default=20)
     args = parser.parse_args()
-    rows = json.loads(args.matrix.read_text())
-    if not isinstance(rows, list) or not rows or not 0 < len(rows) <= args.max_trials:
-        parser.error('matrix must be nonempty and within --max-trials')
-    names = set()
-    for row in rows:
-        name = row.get('name', '')
-        if not isinstance(name, str) or not name or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in name) or name in names:
-            parser.error('trial names must be unique simple identifiers')
-        names.add(name)
-        identity(row['source'], row['command'], row.get('inputs', []), row.get('timeout', 300))
+    try:
+        rows = json.loads(args.matrix.read_text(encoding='utf-8'))
+        if not isinstance(rows, list) or not rows or not 0 < len(rows) <= args.max_trials:
+            raise ValueError('matrix must be nonempty and within --max-trials')
+        names = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError('each trial must be an object')
+            name = row.get('name', '')
+            if not isinstance(name, str) or not name or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in name) or name in names:
+                raise ValueError('trial names must be unique simple identifiers')
+            if not isinstance(row.get('inputs', []), list):
+                raise ValueError('trial inputs must be an array of file paths')
+            names.add(name)
+            identity(row['source'], row['command'], row.get('inputs', []), row.get('timeout', 300))
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        parser.error(f'invalid experiment matrix: {error}')
     results = {row['name']: run_trial(row['source'], row['command'], args.out / row['name'], row.get('inputs', []), row.get('timeout', 300)) for row in rows}
     print(json.dumps(results, indent=2))
     return 2 if any(r['status'] == 'error' for r in results.values()) else 0
