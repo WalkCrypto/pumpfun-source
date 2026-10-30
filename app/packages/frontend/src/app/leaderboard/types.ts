@@ -154,6 +154,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// A window that ends before it starts names no valid interval. Only pairs
+// that both parse to finite instants are compared, so unparseable strings
+// keep their existing (accepted) treatment and null endpoints stay unchecked.
+function isOrderedWindow(
+  value: Record<string, unknown>,
+  from: string,
+  to: string,
+): boolean {
+  const start = value[from];
+  const end = value[to];
+  if (typeof start !== "string" || typeof end !== "string") return true;
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  return (
+    !Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs <= endMs
+  );
+}
+
 function isSource(value: unknown): value is DataSource {
   return (
     isRecord(value) &&
@@ -236,6 +254,10 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
     ["registrationOpensAt", "registrationClosesAt", "startsAt", "endsAt"].every(
       (key) => typeof value[key] === "string" || value[key] === null,
     ) &&
+    // Domain-layer sibling of the upstream date check: a window that ends
+    // before it starts names no valid interval.
+    isOrderedWindow(value, "registrationOpensAt", "registrationClosesAt") &&
+    isOrderedWindow(value, "startsAt", "endsAt") &&
     [value.maxEntries, value.entriesCount, value.participants].every(
       (number) =>
         typeof number === "number" && Number.isFinite(number) && number >= 0,
