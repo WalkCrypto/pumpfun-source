@@ -112,7 +112,7 @@ def entry_record(packet, path):
         kind = "block-device"
     else:
         kind = "unsupported"
-    return {"path": relative, "kind": kind}
+    return {"path": relative, "kind": kind, "mode": stat.S_IMODE(info.st_mode)}
 
 
 def packet_snapshot(packet):
