@@ -324,12 +324,25 @@ function isData(value: unknown): value is LeaderboardData {
     );
   }
   if (value.kind === "competitions") {
-    return [value.upcoming, value.live, value.past].every(
-      (bucket) =>
-        Array.isArray(bucket) &&
-        bucket.length <= 100 &&
-        bucket.every(isCompetitionSummary),
+    const buckets = [value.upcoming, value.live, value.past];
+    if (
+      !buckets.every(
+        (bucket) =>
+          Array.isArray(bucket) &&
+          bucket.length <= 100 &&
+          bucket.every(isCompetitionSummary),
+      )
+    ) {
+      return false;
+    }
+    // Domain-layer sibling of the upstream bucket check: one competition has
+    // exactly one phase, so an id repeated across buckets would render the
+    // same card twice. The per-summary check above guarantees every element
+    // carries a string id before this comparison runs.
+    const ids = buckets.flatMap((bucket) =>
+      (bucket as { id: string }[]).map((summary) => summary.id),
     );
+    return new Set(ids).size === ids.length;
   }
   if (value.kind === "competition-detail") {
     return (
