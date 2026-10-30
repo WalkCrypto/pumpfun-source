@@ -1,80 +1,82 @@
-"""`scripts/mayhem_sell_v2_differential.py --limit` must reject negative counts.
-
-Sibling of #2723 (mayhem buy v2 differential), #2719 (mayhem sell
-differential), #2714 (mayhem buy differential) and merged #2697
-(reconstruction/pump-main/log_attempt.py search --limit): this script's
-case loop is `for c in cases(a.cases)[:a.limit]`, so `--limit -1` ran
-every case except the last and wrote a report whose case_count
-undercounted with no warning, while omitting `--limit` still runs every
-case.
-
-The script module itself is not imported here (it needs solders and the
-Mayhem fixture); only its limit guard is executed, extracted by AST, and
-the --limit argument is checked to actually use that guard, so the test
-fails on base (no guard exists) and passes with the fix.
-"""
-
-import argparse
-import ast
+"""Real Mayhem sell_v2 CLI limit checks with bounded native-family VM controls."""
 from pathlib import Path
+import json
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent
-SCRIPT = ROOT / "scripts" / "mayhem_sell_v2_differential.py"
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / 'scripts/mayhem_sell_v2_differential.py'
+ORIGINAL = ROOT / 'evidence/original/mayhem/deployed.so'
+WSOL = 'So11111111111111111111111111111111111111112'
+TOKEN = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+INSTRUCTIONS = (None,)
 
+def arguments(candidate, output, cases, instruction):
+    args = ['--candidate', str(candidate), '--output', str(output),
+            '--cases', str(cases), '--family', 'native']
+    if instruction is not None:
+        args += ['--instruction', instruction]
+    return args
 
-def load_limit_value():
-    source = SCRIPT.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    func = None
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name == "limit_value":
-            func = node
-            break
-    assert func is not None, "no limit_value guard found in mayhem_sell_v2_differential.py"
-    namespace = {"argparse": argparse}
-    code = compile(ast.Module(body=[func], type_ignores=[]), "limit_value", "exec")
-    exec(code, namespace)
-    return namespace["limit_value"], tree
+def run(args, flags=()):
+    environment = dict(os.environ)
+    environment.pop('PYTHONOPTIMIZE', None)
+    return subprocess.run([sys.executable, '-B', *flags, str(SCRIPT), *args],
+                          cwd=ROOT, env=environment, capture_output=True,
+                          text=True, timeout=120)
 
+class MayhemLimitTests(unittest.TestCase):
+    def test_invalid_limits_fail_before_input_access_and_keep_output(self):
+        with tempfile.TemporaryDirectory(prefix='mayhem-limit-admission-') as directory:
+            directory = Path(directory)
+            output = directory / 'retained.json'
+            for instruction in INSTRUCTIONS:
+                for flags, value in (([], '-1'), ([], '-3'), (['-O'], '-1'), ([], 'not-a-number')):
+                    with self.subTest(instruction=instruction, flags=flags, value=value):
+                        output.write_bytes(b'retained')
+                        args = arguments(directory / 'missing.so', output,
+                                         directory / 'missing-cases.json', instruction)
+                        result = run([*args, '--limit', value], flags)
+                        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                        self.assertIn('argument --limit:', result.stderr)
+                        if value.startswith('-'):
+                            self.assertIn('--limit must not be negative', result.stderr)
+                        self.assertNotIn('Traceback', result.stderr)
+                        self.assertEqual(output.read_bytes(), b'retained')
 
-class MayhemSellV2LimitTests(unittest.TestCase):
-    def test_negative_limit_is_rejected(self):
-        limit_value, _ = load_limit_value()
-        for value in ("-1", "-3"):
-            with self.assertRaises(argparse.ArgumentTypeError):
-                limit_value(value)
+    def test_native_zero_positive_and_default_limits_keep_real_case_counts(self):
+        work = ROOT / 'work'
+        work.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='mayhem-sell_v2-limit-', dir=work) as directory:
+            directory = Path(directory)
+            cases = directory / 'cases.json'
+            cases.write_text(json.dumps({'cases': [
+                {'name': 'paused-first', 'paused': 1},
+                {'name': 'paused-second', 'paused': 1},
+            ]}), encoding='utf-8')
+            for instruction in INSTRUCTIONS:
+                for value, expected in (('0', 0), ('1', 1), (None, 2)):
+                    with self.subTest(instruction=instruction, limit=value):
+                        output = directory / ('report-' + str(instruction) + '-' + str(value) + '.json')
+                        args = arguments(ORIGINAL, output, cases, instruction)
+                        if value is not None:
+                            args += ['--limit', value]
+                        result = run(args)
+                        self.assertEqual(result.returncode, 0, result.stdout[-2000:] + result.stderr[-2000:])
+                        report = json.loads(output.read_text(encoding='utf-8'))
+                        self.assertEqual(report['case_count'], expected)
+                        self.assertEqual(len(report['cases']), expected)
+                        self.assertEqual(report['signed_transactions'], 2 * expected)
+                        self.assertEqual(report['mismatches'], [])
+                        for row in report['cases']:
+                            self.assertFalse(row['case']['token_quote'])
+                            self.assertFalse(row['case']['quote_token22'])
+                            for side in ('original', 'candidate'):
+                                self.assertTrue(row[side]['signature_verified'])
+                                self.assertEqual(row[side]['before'][WSOL]['owner'], TOKEN)
 
-    def test_zero_and_positive_limits_stay_admitted(self):
-        limit_value, _ = load_limit_value()
-        self.assertEqual(limit_value("0"), 0)
-        self.assertEqual(limit_value("2"), 2)
-
-    def test_limit_argument_uses_the_guard(self):
-        _, tree = load_limit_value()
-        found = False
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if not (isinstance(func, ast.Attribute) and func.attr == "add_argument"):
-                continue
-            args = [a for a in node.args if isinstance(a, ast.Constant)]
-            if not any(a.value == "--limit" for a in args):
-                continue
-            for keyword in node.keywords:
-                if keyword.arg == "type" and isinstance(keyword.value, ast.Name):
-                    self.assertEqual(keyword.value.id, "limit_value")
-                    found = True
-        self.assertTrue(found, "--limit argument does not use limit_value")
-
-    def test_negative_limit_would_truncate_the_case_list(self):
-        # Documents the base behavior the guard closes: a negative slice
-        # silently drops trailing cases instead of failing.
-        cases = [{"name": "a"}, {"name": "b"}, {"name": "c"}]
-        self.assertEqual([c["name"] for c in cases[:-1]], ["a", "b"])
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
