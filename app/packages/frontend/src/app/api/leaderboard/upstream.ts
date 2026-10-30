@@ -176,9 +176,22 @@ function parseTraders(value: unknown): TradersData {
   if (![0, 1, 2, 3].includes(periodType)) {
     throw new UpstreamValidationError("periodType is unsupported.");
   }
+  const entries = array(payload.entries, "entries", 100).map(parseTraderEntry);
+  // One wallet holds exactly one rank on a board: a repeated walletAddress
+  // would render twice with two different ranks, so the board is not a
+  // ranking at all. This mirrors the mayhem parser's duplicate-mint check.
+  const wallets = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    if (wallets.has(entry.walletAddress)) {
+      throw new UpstreamValidationError(
+        `entries[${index}].walletAddress repeats a wallet already on the board.`,
+      );
+    }
+    wallets.add(entry.walletAddress);
+  }
   return {
     kind: "traders",
-    entries: array(payload.entries, "entries", 100).map(parseTraderEntry),
+    entries,
     periodLabel: text(payload.periodLabel, "periodLabel", 200),
     windowStartSec: nonNegativeNumber(payload.windowStartSec, "windowStartSec"),
   };
