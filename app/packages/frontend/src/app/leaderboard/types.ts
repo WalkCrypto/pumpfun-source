@@ -244,6 +244,10 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
       (number) =>
         typeof number === "number" && Number.isFinite(number) && number >= 0,
     ) &&
+    // A reversed pair names no valid squad size, the same empty-range defect
+    // the upstream validator already rejects; the per-field check above
+    // guarantees both are numbers before this comparison runs.
+    (value.minMembers as number) <= (value.maxMembers as number) &&
     Array.isArray(value.prizes) &&
     value.prizes.length <= 100 &&
     value.prizes.every(
