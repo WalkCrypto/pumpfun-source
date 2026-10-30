@@ -28,6 +28,8 @@ from solders.transaction import Transaction
 from solders.transaction_metadata import FailedTransactionMetadata
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts'))
+from pump_amm_reusable_harness import pin_program
 IDL = json.loads((ROOT/'evidence/upstream/pump.json').read_text(encoding='utf-8'))
 PROGRAM = Pubkey.from_string(IDL['address'])
 ORIGINAL_PUMP = ROOT/'evidence/original/pump/deployed.so'
@@ -144,18 +146,20 @@ def main():
     p.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
     has_cand = a.candidate_pump and a.candidate_mayhem
+    candidate_pump = pin_program(a.candidate_pump) if has_cand else None
+    candidate_mayhem = pin_program(a.candidate_mayhem) if has_cand else None
     rows=[]; bad=[]
     for c in cases():
         x=run(c)
-        y=run(c,a.candidate_pump,a.candidate_mayhem) if has_cand else None
+        y=run(c,candidate_pump,candidate_mayhem) if has_cand else None
         diff=[k for k in ['before','after','error','events','inner','return'] if y is not None and x[k]!=y[k]]
         rows.append({'case':c,'original':x,'candidate':y,'diff':diff})
         if diff: bad.append(c['case'])
     report={'scope':'End-to-end pump create_v2 Mayhem-mode -> mayhem initialize_mayhem_state via the real pump->mayhem invoke_signed CPI. No byte-identity claim.',
             'original_pump_sha256':hashlib.sha256(ORIGINAL_PUMP.read_bytes()).hexdigest(),
             'original_mayhem_sha256':hashlib.sha256(ORIGINAL_MAYHEM.read_bytes()).hexdigest(),
-            'candidate_pump_sha256':hashlib.sha256(a.candidate_pump.read_bytes()).hexdigest() if has_cand else None,
-            'candidate_mayhem_sha256':hashlib.sha256(a.candidate_mayhem.read_bytes()).hexdigest() if has_cand else None,
+            'candidate_pump_sha256':hashlib.sha256(candidate_pump.read_bytes()).hexdigest() if has_cand else None,
+            'candidate_mayhem_sha256':hashlib.sha256(candidate_mayhem.read_bytes()).hexdigest() if has_cand else None,
             'cases':rows,'mismatches':bad,'script_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_bytes(gzip.compress(json.dumps(report,indent=2).encode(),mtime=0))
