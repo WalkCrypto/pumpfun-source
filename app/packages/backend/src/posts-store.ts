@@ -110,7 +110,10 @@ export const SYNTHETIC_POSTS_SEED: readonly RawPost[] = seedData as RawPost[];
 export function userToProfile(user: User, isVerified: boolean): UserProfile {
   return {
     userId: user.userId ?? user.address,
-    username: user.username ?? user.address.slice(0, 8),
+    // A blank username is not a display name, so it falls back to the address
+    // prefix like an absent one instead of serving '' (sibling of the blank
+    // userId fallback in the same profile).
+    username: user.username || user.address.slice(0, 8),
     bio: user.bio ?? '',
     profileImageUrl: user.profile_image ?? '',
     headerImageUrl: user.header_image_url ?? '',
