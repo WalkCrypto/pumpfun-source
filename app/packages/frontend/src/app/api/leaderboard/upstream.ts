@@ -313,6 +313,22 @@ function parseCompetitionSummary(
   }
   const prizes = parseCompetitionPrizes(competition.prizes, `${label}.prizes`);
   nullableText(competition.imageUrl, `${label}.imageUrl`, 2048);
+  // The rules model renders minMembers..maxMembers as a range, so a reversed
+  // pair names no valid squad size — the same empty-range defect as a
+  // reversed prize tier, which the prize parser already rejects.
+  const minMembers = nonNegativeNumber(
+    competition.minMembers,
+    `${label}.minMembers`,
+  );
+  const maxMembers = nonNegativeNumber(
+    competition.maxMembers,
+    `${label}.maxMembers`,
+  );
+  if (maxMembers < minMembers) {
+    throw new UpstreamValidationError(
+      `${label} member bounds must satisfy minMembers <= maxMembers.`,
+    );
+  }
   for (const key of ["top", "winners"] as const) {
     array(competition[key], `${label}.${key}`, 100).forEach((entry, index) =>
       parseCompetitionEntry(entry, `${label}.${key}[${index}]`),
@@ -326,14 +342,8 @@ function parseCompetitionSummary(
     description: text(competition.description, `${label}.description`, 5000),
     prizeCopy: text(competition.prizeCopy, `${label}.prizeCopy`, 1000),
     prizes,
-    minMembers: nonNegativeNumber(
-      competition.minMembers,
-      `${label}.minMembers`,
-    ),
-    maxMembers: nonNegativeNumber(
-      competition.maxMembers,
-      `${label}.maxMembers`,
-    ),
+    minMembers,
+    maxMembers,
     registrationOpensAt: date(
       competition.registrationOpensAt,
       `${label}.registrationOpensAt`,
