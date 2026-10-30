@@ -43,6 +43,10 @@ from solders.transaction import Transaction
 from solders.transaction_metadata import FailedTransactionMetadata
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+sys.path.insert(0, str(ROOT / "scripts"))
+from pump_amm_reusable_harness import pin_program
 VALID = ROOT / 'repro/donation-relay/local-validation-proposal'
 ORIGINAL = ROOT / 'evidence/dependencies/donation_relay/deployed.so'
 ORIGINAL_SHA = '367f07a62e3f74d358187d175cf3228848e81a56c781a9a75b9df7fed1268563'
@@ -376,7 +380,7 @@ def main():
     ap.add_argument('--group', choices=['ordinary', 'business_rejection'], default='ordinary')
     ap.add_argument('--output', type=Path, required=True)
     a = ap.parse_args()
-    ok = execute(a.candidate.resolve(), a.group, a.output.resolve())
+    ok = execute(pin_program(a.candidate.resolve()), a.group, a.output.resolve())
     raise SystemExit(0 if ok else 1)
 
 
