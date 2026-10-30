@@ -306,10 +306,24 @@ function isData(value: unknown): value is LeaderboardData {
     );
   }
   if (value.kind === "creators") {
+    if (
+      !Array.isArray(value.entries) ||
+      value.entries.length > 25 ||
+      !value.entries.every(isCreatorEntry)
+    ) {
+      return false;
+    }
+    // Domain-layer sibling of the upstream creator check: one creator holds
+    // exactly one row on a board. Null userIds identify no creator, so they
+    // are not compared — the same rule the upstream parser applies.
+    const userIds = new Set<string>();
+    for (const entry of value.entries as { userId: string | null }[]) {
+      if (entry.userId !== null) {
+        if (userIds.has(entry.userId)) return false;
+        userIds.add(entry.userId);
+      }
+    }
     return (
-      Array.isArray(value.entries) &&
-      value.entries.length <= 25 &&
-      value.entries.every(isCreatorEntry) &&
       typeof value.totalEarners === "number" &&
       Number.isSafeInteger(value.totalEarners) &&
       value.totalEarners >= 0 &&
