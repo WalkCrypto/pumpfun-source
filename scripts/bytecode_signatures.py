@@ -115,10 +115,12 @@ def detect_error_patterns(elf, start, end):
     offset = start
     while offset + 8 <= end:
         opcode = b[offset]
-        # Look for: conditional branch + mov immediate + call/exit
-        if opcode in (0x15, 0x1d, 0x25, 0x2d, 0x35, 0x3d,
+        # Look for: conditional branch + mov immediate + call/exit.
+        # Every SBPF JMP64 conditional jump, including jset, jslt and jsle:
+        # https://github.com/anza-xyz/sbpf/blob/f754c707f99779a756978f87c9afd25eeeb3d92e/src/ebpf.rs#L478-L521
+        if opcode in (0x15, 0x1d, 0x25, 0x2d, 0x35, 0x3d, 0x45, 0x4d,
                       0x55, 0x5d, 0x65, 0x6d, 0x75, 0x7d,
-                      0xa5, 0xad, 0xb5, 0xbd):
+                      0xa5, 0xad, 0xb5, 0xbd, 0xc5, 0xcd, 0xd5, 0xdd):
             branch_off = struct.unpack_from("<h", b, offset + 2)[0]
             branch_target = offset + 8 + branch_off * 8
             # Check if branch leads to a mov + error pattern
