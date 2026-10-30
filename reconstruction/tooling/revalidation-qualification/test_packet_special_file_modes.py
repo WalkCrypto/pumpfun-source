@@ -6,6 +6,8 @@ import tempfile
 import unittest
 import audit
 
+@unittest.skipUnless(os.name == 'posix' and hasattr(os, 'mkfifo') and hasattr(socket, 'AF_UNIX'),
+                     'requires POSIX FIFOs and Unix-domain sockets')
 class PacketSpecialFileModeTests(unittest.TestCase):
     def test_permission_change_invalidates_packet_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -20,8 +22,8 @@ class PacketSpecialFileModeTests(unittest.TestCase):
                 original_sock = sock.stat().st_mode
                 before = audit.packet_snapshot(packet)
                 try:
-                    fifo.chmod(0o600)
-                    sock.chmod(0o600)
+                    fifo.chmod(stat.S_IMODE(original_fifo) ^ stat.S_IWUSR)
+                    sock.chmod(stat.S_IMODE(original_sock) ^ stat.S_IWUSR)
                     self.assertNotEqual(stat.S_IMODE(fifo.stat().st_mode), stat.S_IMODE(original_fifo))
                     self.assertNotEqual(stat.S_IMODE(sock.stat().st_mode), stat.S_IMODE(original_sock))
                     after = audit.packet_snapshot(packet)
